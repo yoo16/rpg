@@ -51,7 +51,6 @@ $mapData = [
     'encounter_rate' => 0.01,
     'possible_enemies' => ['e001', 'e002', 'e003'],
     'player_assets' => [
-        // 'model_url' => 'assets/models/player.glb',
         'model_url' => 'assets/fbx/character1_idle.fbx',
         "anim_walk_url" => "assets/fbx/character1_walk.fbx",
         'scale' => 0.01
