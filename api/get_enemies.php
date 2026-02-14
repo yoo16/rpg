@@ -27,10 +27,10 @@ $enemyData = [
         // 'model_url' => 'assets/models/parrot.glb',
         'model_url' => 'assets/fbx/enemy1_idle.fbx',
         'attack_url' => 'assets/fbx/enemy1_attack.fbx',
-        'y_offset' => -2.0
+        'y_offset' => -1.0
     ],
     'e002' => [
-        'name' => 'ふらふらみんご',
+        'name' => 'ふらみんご',
         'hp' => 60,
         'maxHp' => 60,
         'attack' => 12,
@@ -43,7 +43,7 @@ $enemyData = [
         'y_offset' => -1.2
     ],
     'e003' => [
-        'name' => 'うまー',
+        'name' => 'らいらいおん',
         'hp' => 100,
         'maxHp' => 100,
         'attack' => 15,
@@ -56,7 +56,7 @@ $enemyData = [
         'y_offset' => 0
     ],
     'e004' => [
-        'name' => 'ボス',
+        'name' => 'むてきんぐ',
         'hp' => 200,
         'maxHp' => 200,
         'attack' => 25,

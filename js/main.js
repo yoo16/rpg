@@ -1,10 +1,7 @@
-/**
- * Web 3D RPG - Main Entry Point
- * Refactored to use modular architecture
- */
 import { Game } from './game.js';
 
+// DOMが読み込まれてから開始
 window.addEventListener('DOMContentLoaded', () => {
-    // Start Game
-    window.game = new Game();
+    const game = new Game();
+    window.game = game;
 });

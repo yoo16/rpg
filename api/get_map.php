@@ -48,7 +48,7 @@ $mapData = [
         1 => 'wall',
         2 => 'water'
     ],
-    'encounter_rate' => 0.2,
+    'encounter_rate' => 0.01,
     'possible_enemies' => ['e001', 'e002', 'e003'],
     'player_assets' => [
         // 'model_url' => 'assets/models/player.glb',

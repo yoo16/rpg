@@ -95,7 +95,7 @@ export default class GameApi {
                             hp: 100,
                             maxHp: 100,
                             attack: 15,
-                            defense: 3
+                            defense: 5
                         }
                     }
                 }

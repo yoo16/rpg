@@ -45,7 +45,6 @@ export class BattleSystem {
             this.enemy = {
                 id: randomEnemyId,
                 name: enemyData.name,
-                color: enemyData.color,
                 scale: enemyData.scale,
                 model_url: enemyData.model_url,
                 attack_url: enemyData.attack_url,
@@ -121,8 +120,9 @@ export class BattleSystem {
                 node.castShadow = true;
                 node.receiveShadow = true;
                 if (node.material) {
-                    node.material = Array.isArray(node.material) ?
-                        node.material.map(m => m.clone()) : node.material.clone();
+                    const mats = Array.isArray(node.material) ? node.material : [node.material];
+                    const clonedMats = mats.map(m => m.clone());
+                    node.material = Array.isArray(node.material) ? clonedMats : clonedMats[0];
                 }
             }
         });
@@ -131,38 +131,29 @@ export class BattleSystem {
     onEnemyAttack() {
         if (this.phase !== BATTLE_PHASE.ENEMY_TURN) return;
 
-        // 1. 攻撃開始：モデル切り替え
-        let animDuration = 1000; // デフォルト値
+        let animDuration = 1000;
         if (this.enemy.attackMesh && this.enemy.idleMesh) {
             this.enemy.idleMesh.visible = false;
             this.enemy.attackMesh.visible = true;
-
             const clip = this.enemy.attackMesh.animations[0];
             animDuration = clip ? clip.duration * 1000 : 1000;
-
             const action = this.enemy.attackMixer.clipAction(clip);
             action.reset().play();
         }
 
-        // 2. 攻撃完了（アニメーションが半分〜終わる頃）に画面を揺らす
-        const hitTiming = animDuration * 0.6; // 60%くらいでヒットと仮定
+        const hitTiming = animDuration * 0.6;
         const waitAfterAttack = 800;
 
         setTimeout(() => {
             const damage = Math.max(this.enemy.stats.attack - this.player.stats.defense, 1);
             this.player.stats.hp -= damage;
 
-            this.addBattleLog(`👹 ${this.enemy.name} の攻撃！ ${damage} のダメージ！`);
-
-            // 画面を揺らす
-            // this.shakeCamera();
-            // this.shakeCanvas();
+            this.addBattleLog(`${this.enemy.name} の攻撃！ 勇者に ${damage} のダメージ！`);
             this.shakeScreen();
             this.updateBattleUI();
 
         }, hitTiming);
 
-        // 3. 全工程終了後に待機ポーズへ戻る
         setTimeout(() => {
             if (this.enemy.attackMesh && this.enemy.idleMesh) {
                 this.enemy.attackMesh.visible = false;
@@ -181,48 +172,67 @@ export class BattleSystem {
         }, animDuration + waitAfterAttack);
     }
 
-    // 強化版：カメラシェイク演出
+    onPlayerAttack() {
+        if (this.phase !== BATTLE_PHASE.PLAYER_TURN) return;
+        this.disableButtons();
+
+        const damage = Math.max(this.player.stats.attack - this.enemy.stats.defense, 1);
+        this.enemy.stats.hp -= damage;
+
+        this.addBattleLog(`勇者の攻撃！ ${this.enemy.name} に ${damage} のダメージ！`);
+        this.flashMesh(this.enemy.idleMesh, '#ff0000');
+        this.shakeCamera();
+        this.updateBattleUI();
+
+        if (this.enemy.stats.hp <= 0) {
+            this.phase = BATTLE_PHASE.VICTORY;
+            setTimeout(() => {
+                this.addBattleLog('🎉 勝利！');
+                setTimeout(() => this.endBattle(true), 1500);
+            }, 1000);
+        } else {
+            this.phase = BATTLE_PHASE.ENEMY_TURN;
+            setTimeout(() => this.onEnemyAttack(), 1000);
+        }
+    }
+
+    // 3D空間のカメラ自体を揺らす
     shakeCamera() {
+        if (!this.camera) return;
+
+        // 現在のカメラ位置を保存（揺れが終わった後に戻る場所）
         const originalPos = new THREE.Vector3().copy(this.camera.position);
-        // 揺れる時間(ms)
-        const duration = 400;
-        // 揺れる幅
-        const range = 1.5;
+        const duration = 500; // 揺れる時間（ミリ秒）
         const start = Date.now();
 
         const animateShake = () => {
             const elapsed = Date.now() - start;
+
             if (elapsed < duration) {
+                // 残り時間に応じて揺れを小さくしていく（減衰効果）
                 const progress = 1 - (elapsed / duration);
-                // 時間とともに揺れを弱める
-                const intensity = range * progress;
+                const intensity = 0.5 * progress; // 揺れの強さ
 
                 this.camera.position.x = originalPos.x + (Math.random() - 0.5) * intensity;
                 this.camera.position.y = originalPos.y + (Math.random() - 0.5) * intensity;
+                this.camera.position.z = originalPos.z + (Math.random() - 0.5) * intensity;
 
+                // 次のフレームでも実行
                 requestAnimationFrame(animateShake);
             } else {
-                // 元の位置に復帰
+                // 終了時に元の位置へ正確に戻す
                 this.camera.position.copy(originalPos);
             }
         };
+
         animateShake();
     }
 
-    shakeCanvas() {
-        const canvas = document.querySelector('canvas');
-        if (!canvas) return;
-        canvas.classList.remove('shake-active');
-        canvas.classList.add('shake-active');
-        setTimeout(() => {
-            canvas.classList.remove('shake-active');
-        }, 400);
-    }
-
     shakeScreen() {
-        const container = document.getElementById('game-container') || document.body;
+        const container = document.getElementById('game-container');
+        if (!container) return;
         container.classList.remove('screen-shake-active');
-        void container.offsetWidth;
+        void container.offsetWidth; // 強制リフロー
         container.classList.add('screen-shake-active');
         setTimeout(() => {
             container.classList.remove('screen-shake-active');
@@ -253,21 +263,41 @@ export class BattleSystem {
     }
 
     endBattle(isVictory) {
-        [this.enemy.idleMesh, this.enemy.attackMesh].forEach(mesh => {
-            if (mesh) {
-                mesh.traverse(node => {
-                    if (node.isMesh) {
-                        node.geometry.dispose();
-                        const mats = Array.isArray(node.material) ? node.material : [node.material];
-                        mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-                    }
-                });
-                this.battleGroup.remove(mesh);
-            }
-        });
+        if (this.enemy) {
+            [this.enemy.idleMesh, this.enemy.attackMesh].forEach(mesh => {
+                if (mesh) {
+                    mesh.traverse(node => {
+                        if (node.isMesh) {
+                            node.geometry.dispose();
+                            const mats = Array.isArray(node.material) ? node.material : [node.material];
+                            mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                        }
+                    });
+                    this.battleGroup.remove(mesh);
+                }
+            });
+        }
         this.enemy = null;
         this.hideBattleUI();
         if (this.onBattleEnd) this.onBattleEnd(isVictory);
+    }
+
+    updateBattleUI() {
+        if (!this.enemy || !this.player) return;
+
+        // 敵HP更新
+        const eHP = Math.max(0, (this.enemy.stats.hp / this.enemy.stats.maxHp) * 100);
+        const eBar = document.getElementById('enemy-hp-bar');
+        const eText = document.getElementById('enemy-hp-text');
+        if (eBar) eBar.style.width = `${eHP}%`;
+        if (eText) eText.textContent = `${Math.floor(Math.max(0, this.enemy.stats.hp))}/${this.enemy.stats.maxHp}`;
+
+        // プレイヤーHP更新
+        const pHP = Math.max(0, (this.player.stats.hp / this.player.stats.maxHp) * 100);
+        const pBar = document.getElementById('player-hp-bar');
+        const pText = document.getElementById('player-hp-text');
+        if (pBar) pBar.style.width = `${pHP}%`;
+        if (pText) pText.textContent = `${Math.floor(Math.max(0, this.player.stats.hp))}/${this.player.stats.maxHp}`;
     }
 
     setupUI() {
@@ -283,58 +313,16 @@ export class BattleSystem {
         };
     }
 
-    onPlayerAttack() {
-        if (this.phase !== BATTLE_PHASE.PLAYER_TURN) return;
-        this.disableButtons();
-        const damage = Math.max(this.player.stats.attack - this.enemy.stats.defense, 1);
-        this.enemy.stats.hp -= damage;
-        this.addBattleLog(`⚔️ あなたの攻撃！ ${this.enemy.name} に ${damage} のダメージ！`);
-        this.shakeCanvas();
-        this.flashMesh(this.enemy.idleMesh, '#ff0000');
-        this.updateBattleUI();
-        if (this.enemy.stats.hp <= 0) {
-            this.phase = BATTLE_PHASE.VICTORY;
-            setTimeout(() => {
-                this.addBattleLog('🎉 勝利！');
-                setTimeout(() => this.endBattle(true), 1500);
-            }, 1000);
-        } else {
-            this.phase = BATTLE_PHASE.ENEMY_TURN;
-            setTimeout(() => this.onEnemyAttack(), 1000);
-        }
-    }
-
-    updateBattleUI() {
-        if (!this.enemy || !this.player) return;
-        const enemyHPPercent = Math.max(0, (this.enemy.stats.hp / this.enemy.stats.maxHp) * 100);
-        const enemyBar = document.getElementById('enemy-hp-bar');
-        const enemyText = document.getElementById('enemy-hp-text');
-        if (enemyBar) enemyBar.style.width = `${enemyHPPercent}%`;
-        if (enemyText) enemyText.textContent = `${Math.max(0, Math.floor(this.enemy.stats.hp))}/${this.enemy.stats.maxHp}`;
-        const playerHPPercent = Math.max(0, (this.player.stats.hp / this.player.stats.maxHp) * 100);
-        const playerBar = document.getElementById('player-hp-bar');
-        const playerText = document.getElementById('player-hp-text');
-        if (playerBar) {
-            playerBar.style.width = `${playerHPPercent}%`;
-            playerBar.style.backgroundColor = playerHPPercent < 30 ? '#ff6666' : '#66ff66';
-        }
-        if (playerText) playerText.textContent = `${Math.max(0, Math.floor(this.player.stats.hp))}/${this.player.stats.maxHp}`;
-    }
-
-    showBattleUI() { const ui = document.getElementById('battle-ui'); if (ui) ui.style.display = 'block'; }
-    hideBattleUI() { const ui = document.getElementById('battle-ui'); if (ui) ui.style.display = 'none'; }
-    addBattleLog(msg) { const el = document.getElementById('battle-message'); if (el) el.textContent = msg; }
+    showBattleUI() { document.getElementById('battle-ui').style.display = 'block'; }
+    hideBattleUI() { document.getElementById('battle-ui').style.display = 'none'; }
+    addBattleLog(msg) { document.getElementById('battle-message').textContent = msg; }
     enableButtons() {
-        const btnAttack = document.getElementById('btn-attack');
-        const btnRun = document.getElementById('btn-run');
-        if (btnAttack) btnAttack.disabled = false;
-        if (btnRun) btnRun.disabled = false;
+        document.getElementById('btn-attack').disabled = false;
+        document.getElementById('btn-run').disabled = false;
     }
     disableButtons() {
-        const btnAttack = document.getElementById('btn-attack');
-        const btnRun = document.getElementById('btn-run');
-        if (btnAttack) btnAttack.disabled = true;
-        if (btnRun) btnRun.disabled = true;
+        document.getElementById('btn-attack').disabled = true;
+        document.getElementById('btn-run').disabled = true;
     }
 
     flashMesh(mesh, color) {
@@ -343,9 +331,7 @@ export class BattleSystem {
         mesh.traverse((child) => {
             if (child.isMesh && child.material) {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
-                materials.forEach(mat => {
-                    if (mat.color) originalColors.set(mat, mat.color.getHex());
-                });
+                materials.forEach(mat => { if (mat.color) originalColors.set(mat, mat.color.getHex()); });
             }
         });
         let toggle = false;

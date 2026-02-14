@@ -166,29 +166,29 @@ export class Game {
     }
 
     checkInteraction() {
+        if (this.dialogActive) return;
+
         const { x, z } = this.player.getFacingPosition();
+        console.log(`🔍 目の前をチェック: Grid(${x}, ${z})`);
 
-        console.log(`🔍 Checking Interaction at (${x}, ${z})`);
-
-        // Check NPC
+        // MapManagerからNPCデータを取得
         const npcData = this.mapManager.getNPCAt(x, z);
-        if (npcData && npcData.dialogues?.length > 0) {
-            console.log('✅ Found NPC');
+
+        if (npcData) {
+            console.log('✅ NPC発見:', npcData.name);
             this.startNPCDialog(npcData);
-            return;
+            return; // NPCがいたらイベントはチェックしない
         }
 
-        // Check Event
+        // イベント（回復など）のチェック
         const event = this.mapManager.getEventAt(x, z);
         if (event) {
-            console.log('✅ Found Event:', event.type);
+            console.log('✅ イベント発見:', event.type);
             switch (event.type) {
                 case 'heal':
                     this.executeHeal(event);
                     this.showDialog(event.message);
                     break;
-                default:
-                    console.log('Unknown event type:', event.type);
             }
         }
     }
@@ -252,15 +252,22 @@ export class Game {
         this.lastDialogTime = performance.now();
     }
 
+    // game.js 内
     checkNPCProximity() {
-        if (this.currentState !== STATE.MAP) return;
+        if (this.currentState !== STATE.MAP || this.dialogActive) return;
 
-        // mapManager check
-        const result = this.mapManager.checkNPCProximity(this.player.gridX, this.player.gridZ, this.currentNPCId);
+        const px = this.player.gridX;
+        const pz = this.player.gridZ;
+        console.log(px, pz);
+        const result = this.mapManager.checkNPCProximity(px, pz, this.currentNPCId);
 
-        if (result && result.npc) {
+        if (result.npc) {
+            // 新しいNPCを見つけたら会話を開始
+            console.log(`💬 ${result.npc.name} が話しかけてきた！`);
             this.startNPCDialog(result.npc);
-        } else if (result && !result.adjacent) {
+        } else if (!result.adjacent) {
+            // 誰の隣にもいなくなったらフラグをリセット
+            // これにより、再度近づいた時にまた会話ができるようになる
             this.currentNPCId = null;
         }
     }
@@ -278,9 +285,8 @@ export class Game {
         if (this.currentState === STATE.MAP) {
             if (!this.dialogActive) {
                 this.player.update(delta, this.keys);
-                this.checkNPCProximity();
             } else {
-                this.player.update(delta, {}); // Stop movement if dialog active
+                this.player.update(delta, {});
             }
             this.mapManager.update(delta);
             this.updateCamera();
@@ -311,8 +317,8 @@ export class Game {
     updateUI() {
         // FPS update could be here
         if (this.player.mesh) {
-            const nameElem = document.getElementById('player-name');
-            if (nameElem) nameElem.textContent = this.player.name || '勇者';
+            // const nameElem = document.getElementById('player-name');
+            // if (nameElem) nameElem.textContent = this.player.name || '勇者';
 
             const posX = document.getElementById('pos-x');
             const posZ = document.getElementById('pos-z');
