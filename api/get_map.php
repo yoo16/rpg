@@ -48,11 +48,13 @@ $mapData = [
         1 => 'wall',
         2 => 'water'
     ],
-    'encounter_rate' => 0.02,
+    'encounter_rate' => 0.2,
     'possible_enemies' => ['e001', 'e002', 'e003'],
     'player_assets' => [
-        'model_url' => 'assets/models/player.glb',
-        'scale' => 0.5
+        // 'model_url' => 'assets/models/player.glb',
+        'model_url' => 'assets/fbx/character1_idle.fbx',
+        "anim_walk_url" => "assets/fbx/character1_walk.fbx",
+        'scale' => 0.01
     ],
     'npcs' => [
         [
@@ -61,8 +63,8 @@ $mapData = [
             'x' => 4,
             'z' => 4,
             'color' => '#0066ff',
-            'scale' => 0.5,
-            'model_url' => 'assets/models/villager.glb',
+            'scale' => 0.01,
+            'model_url' => 'assets/fbx/character4_idle.fbx',
             'dialogues' => [
                 'ここは平和な村です。',
                 '北の森には気をつけて！'
@@ -74,8 +76,8 @@ $mapData = [
             'x' => 10,
             'z' => 8,
             'color' => '#ff6600',
-            'scale' => 0.6,
-            'model_url' => 'assets/models/villager.glb',
+            'scale' => 0.01,
+            'model_url' => 'assets/fbx/character5_idle.fbx',
             'dialogues' => [
                 'この村は厳重に守られている。',
                 'あなたは誰ですか？'

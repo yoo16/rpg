@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE, DIRECTION } from './constants.js';
 
 export class Player {
@@ -9,19 +10,23 @@ export class Player {
 
         this.gridX = 1;
         this.gridZ = 1;
-        this.mesh = null;
-        this.model = null;
-        this.mixer = null;
-        this.actions = {};
-        this.currentAction = null;
-        this.stats = null;
-        this.name = 'Hero';
+        this.mesh = new THREE.Group();
+
+        this.idleModel = null;
+        this.walkModel = null;
+        this.idleMixer = null;
+        this.walkMixer = null;
+
         this.direction = DIRECTION.DOWN;
         this.isMoving = false;
         this.targetPosition = null;
         this.rotationTarget = Math.PI;
 
-        this.loader = new GLTFLoader();
+        this.gltfLoader = new GLTFLoader();
+        this.fbxLoader = new FBXLoader();
+
+        // 現在のアニメーション状態を保持する変数
+        this.currentAnimState = 'Idle';
     }
 
     async init(playerData, mapData) {
@@ -30,133 +35,130 @@ export class Player {
 
         const assetInfo = mapData.player_assets;
         const modelUrl = assetInfo ? assetInfo.model_url : null;
+        const walkUrl = assetInfo ? assetInfo.anim_walk_url : null;
         const scale = assetInfo ? (assetInfo.scale || 0.5) : 0.5;
 
-        console.log(`👤 プレイヤーモデル読み込み中... ${modelUrl}`);
+        let [mainData, walkData] = await Promise.all([
+            modelUrl ? this.loadModel(modelUrl) : Promise.resolve(null),
+            walkUrl ? this.loadModel(walkUrl) : Promise.resolve(null)
+        ]);
 
-        let gltf = null;
-        if (modelUrl) {
-            gltf = await this.loadModel(modelUrl);
-        }
-
-        if (gltf) {
-            this.model = gltf.scene;
-            this.mesh = this.model;
-            this.mesh.scale.set(scale, scale, scale);
-            this.mesh.traverse((node) => {
-                if (node.isMesh) {
-                    node.castShadow = true;
-                    node.receiveShadow = true;
-                }
-            });
-
-            if (gltf.animations && gltf.animations.length > 0) {
-                this.mixer = new THREE.AnimationMixer(this.model);
-
-                // Try to find Idle and Walk (or Run)
-                const idleAnim = gltf.animations.find(a => a.name.toLowerCase().includes('idle')) || gltf.animations[0];
-                const walkAnim = gltf.animations.find(a =>
-                    a.name.toLowerCase().includes('walk') ||
-                    a.name.toLowerCase().includes('run') ||
-                    a.name.toLowerCase().includes('move')
-                ) || gltf.animations[1];
-
-                if (idleAnim) {
-                    this.actions['Idle'] = this.mixer.clipAction(idleAnim);
-                    this.actions['Idle'].play();
-                    this.currentAction = this.actions['Idle'];
-                }
-                if (walkAnim) {
-                    const action = this.mixer.clipAction(walkAnim);
-                    action.timeScale = 1.5;
-                    this.actions['Walk'] = action;
-                }
+        if (mainData) {
+            this.idleModel = mainData.scene || mainData;
+            this.setupModel(this.idleModel, scale);
+            this.mesh.add(this.idleModel);
+            this.idleMixer = new THREE.AnimationMixer(this.idleModel);
+            const idleClip = mainData.animations.find(a => a.name.toLowerCase().includes('idle')) || mainData.animations[0];
+            if (idleClip) {
+                const action = this.idleMixer.clipAction(idleClip);
+                action.loop = THREE.LoopRepeat;
+                action.play();
             }
-        } else {
-            console.warn('Using fallback player model');
-            const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-            const material = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
-            this.mesh = new THREE.Mesh(geometry, material);
         }
+
+        if (walkData) {
+            this.walkModel = walkData.scene || walkData;
+            this.setupModel(this.walkModel, scale);
+            this.mesh.add(this.walkModel);
+            this.walkMixer = new THREE.AnimationMixer(this.walkModel);
+            const walkClip = walkData.animations[0];
+            if (walkClip) {
+                const action = this.walkMixer.clipAction(walkClip);
+                action.loop = THREE.LoopRepeat;
+                action.timeScale = 1.4;
+                action.play();
+            }
+        }
+
+        // 初期表示を明示的に設定
+        this.currentAnimState = 'Idle';
+        if (this.idleModel) this.idleModel.visible = true;
+        if (this.walkModel) this.walkModel.visible = false;
 
         this.updatePlayerPosition();
         this.rotationTarget = this.getRotationFromDirection(this.direction);
         this.mesh.rotation.y = this.rotationTarget;
     }
 
-    loadModel(url) {
-        return new Promise((resolve) => {
-            this.loader.load(url, (gltf) => resolve(gltf), undefined, (err) => {
-                console.warn(`Failed to load player model: ${url}`, err);
-                resolve(null);
-            });
+    setupModel(model, scale) {
+        model.scale.set(scale, scale, scale);
+        model.traverse(n => {
+            if (n.isMesh) {
+                n.castShadow = true;
+                n.receiveShadow = true;
+                n.material = n.material.clone();
+            }
         });
     }
 
-    updatePlayerPosition() {
-        if (!this.mesh) return;
-        const worldX = this.gridX * TILE_SIZE;
-        const worldZ = this.gridZ * TILE_SIZE;
-        const y = this.model ? 0 : 0.4;
-        this.mesh.position.set(worldX, y, worldZ);
+    async loadModel(url) {
+        const ext = url.split('.').pop().toLowerCase();
+        return new Promise((resolve) => {
+            const loader = (ext === 'fbx') ? this.fbxLoader : this.gltfLoader;
+            loader.load(url, (data) => resolve(data), undefined, () => resolve(null));
+        });
+    }
+
+    resetRootPosition(model) {
+        if (!model) return;
+        model.traverse(node => {
+            if (node.isBone && (
+                node.name.toLowerCase().includes('hips') ||
+                node.name.toLowerCase().includes('root') ||
+                node.name.toLowerCase().includes('pelvis')
+            )) {
+                node.position.x = 0;
+                node.position.z = 0;
+            }
+        });
     }
 
     update(delta, keys) {
-        this.handleInput(keys);
+        // 1. Update movement first (to handle arrival and update isMoving)
         this.updateMovement(delta);
 
-        if (this.mixer) {
-            this.mixer.update(delta);
+        // 2. Handle input next (to immediately start moving again if key held)
+        this.handleInput(keys);
+
+        // 3. Centralized animation state logic
+        if (this.isMoving) {
+            this.setAnimationState('Walk');
+        } else {
+            this.setAnimationState('Idle');
+        }
+
+        // 4. Update mixers
+        if (this.idleMixer) {
+            this.idleMixer.update(delta);
+            this.resetRootPosition(this.idleModel);
+        }
+        if (this.walkMixer) {
+            this.walkMixer.update(delta);
+            this.resetRootPosition(this.walkModel);
         }
     }
 
     handleInput(keys) {
         if (this.isMoving || !this.mesh) return;
-
         let targetX = this.gridX;
         let targetZ = this.gridZ;
         let direction = null;
 
-        if (keys['ArrowUp'] || keys['w'] || keys['W']) {
-            targetZ--; direction = DIRECTION.UP;
-        } else if (keys['ArrowDown'] || keys['s'] || keys['S']) {
-            targetZ++; direction = DIRECTION.DOWN;
-        } else if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-            targetX--; direction = DIRECTION.LEFT;
-        } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-            targetX++; direction = DIRECTION.RIGHT;
-        }
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) { targetZ--; direction = DIRECTION.UP; }
+        else if (keys['ArrowDown'] || keys['s'] || keys['S']) { targetZ++; direction = DIRECTION.DOWN; }
+        else if (keys['ArrowLeft'] || keys['a'] || keys['A']) { targetX--; direction = DIRECTION.LEFT; }
+        else if (keys['ArrowRight'] || keys['d'] || keys['D']) { targetX++; direction = DIRECTION.RIGHT; }
 
         if (direction) {
             this.direction = direction;
             this.rotationTarget = this.getRotationFromDirection(direction);
-
-            const mapWidth = this.mapManager.mapData.width;
-            const mapHeight = this.mapManager.mapData.height;
-
-            if (targetX < 0 || targetX >= mapWidth || targetZ < 0 || targetZ >= mapHeight) return;
-
-            // Check collision with map tiles
-            const tileType = this.mapManager.mapData.tiles[targetZ][targetX];
-            if (tileType === 1 || tileType === 2) return;
-
-            // Check collision with NPCs?
-
+            const { width, height, tiles } = this.mapManager.mapData;
+            if (targetX < 0 || targetX >= width || targetZ < 0 || targetZ >= height) return;
+            if (tiles[targetZ][targetX] === 1 || tiles[targetZ][targetX] === 2) return;
             this.gridX = targetX;
             this.gridZ = targetZ;
             this.isMoving = true;
             this.targetPosition = new THREE.Vector3(targetX * TILE_SIZE, 0, targetZ * TILE_SIZE);
-            if (this.model) this.targetPosition.y = 0;
-            else this.targetPosition.y = 0.4;
-
-            this.checkEncounter();
-        }
-    }
-
-    checkEncounter() {
-        const rate = this.mapManager.mapData.encounter_rate || 0.1;
-        if (Math.random() < rate) {
-            if (this.onEncounter) this.onEncounter();
         }
     }
 
@@ -165,7 +167,6 @@ export class Player {
             this.smoothRotate(deltaTime);
             return;
         }
-
         const speed = 4.0;
         const currentPos = this.mesh.position;
         const targetPos = this.targetPosition;
@@ -175,57 +176,55 @@ export class Player {
             this.mesh.position.copy(targetPos);
             this.isMoving = false;
             this.targetPosition = null;
-            this.setAnimation('Idle');
+            this.checkEncounter();
         } else {
-            const direction = targetPos.clone().sub(currentPos).normalize();
-            const moveDistance = Math.min(speed * deltaTime, distance);
-            currentPos.add(direction.multiplyScalar(moveDistance));
-            this.setAnimation('Walk');
+            const moveDir = targetPos.clone().sub(currentPos).normalize();
+            currentPos.add(moveDir.multiplyScalar(Math.min(speed * deltaTime, distance)));
         }
-
         this.smoothRotate(deltaTime);
     }
 
-    smoothRotate(deltaTime) {
-        if (!this.mesh) return;
+    checkEncounter() {
+        const rate = this.mapManager.mapData.encounter_rate || 0.1;
+        if (Math.random() < rate && this.onEncounter) this.onEncounter();
+    }
 
+    smoothRotate(deltaTime) {
         const currentRotation = this.mesh.rotation.y;
         let targetRotation = this.rotationTarget;
-
         const PI2 = Math.PI * 2;
         while (targetRotation - currentRotation > Math.PI) targetRotation -= PI2;
         while (targetRotation - currentRotation < -Math.PI) targetRotation += PI2;
-
-        const rotationSpeed = 10.0;
-        this.mesh.rotation.y += (targetRotation - currentRotation) * rotationSpeed * deltaTime;
+        this.mesh.rotation.y += (targetRotation - currentRotation) * 10.0 * deltaTime;
     }
 
     getRotationFromDirection(dir) {
+        const offset = Math.PI;
         switch (dir) {
-            case DIRECTION.DOWN: return Math.PI;
-            case DIRECTION.UP: return 0;
-            case DIRECTION.LEFT: return Math.PI / 2;
-            case DIRECTION.RIGHT: return -Math.PI / 2;
+            case DIRECTION.DOWN: return offset + Math.PI;
+            case DIRECTION.UP: return offset + 0;
+            case DIRECTION.LEFT: return offset + Math.PI / 2;
+            case DIRECTION.RIGHT: return offset - Math.PI / 2;
             default: return 0;
         }
     }
 
-    setAnimation(name) {
-        if (!this.actions[name]) return;
-        const newAction = this.actions[name];
+    setAnimationState(state) {
+        if (this.currentAnimState === state) return;
 
-        if (this.currentAction !== newAction) {
-            if (this.currentAction) {
-                this.currentAction.fadeOut(0.2);
-            }
-            newAction.reset().fadeIn(0.2).play();
-            this.currentAction = newAction;
-        }
+        this.currentAnimState = state;
+        const isWalk = state === 'Walk';
+
+        if (this.idleModel) this.idleModel.visible = !isWalk;
+        if (this.walkModel) this.walkModel.visible = isWalk;
+    }
+
+    updatePlayerPosition() {
+        if (this.mesh) this.mesh.position.set(this.gridX * TILE_SIZE, 0, this.gridZ * TILE_SIZE);
     }
 
     getFacingPosition() {
-        let x = this.gridX;
-        let z = this.gridZ;
+        let x = this.gridX; let z = this.gridZ;
         switch (this.direction) {
             case DIRECTION.UP: z--; break;
             case DIRECTION.DOWN: z++; break;

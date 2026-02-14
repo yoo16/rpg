@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             width: 100vw;
             height: 100vh;
@@ -62,15 +63,22 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
-        
+
         #canvas-container {
             width: 100%;
             height: 100%;
         }
-        
+
         #ui {
             position: absolute;
             top: 20px;
@@ -83,21 +91,21 @@
             font-family: monospace;
             max-width: 300px;
         }
-        
+
         #ui h2 {
             margin-bottom: 10px;
             color: #0f0;
         }
-        
+
         #ui p {
             margin: 5px 0;
         }
-        
+
         .label {
             color: #0f0;
             font-weight: bold;
         }
-        
+
         .value {
             color: #aaa;
         }
@@ -109,7 +117,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Let clicks pass through to 3D scene if needed, but we need buttons to work */
+            pointer-events: none;
+            /* Let clicks pass through to 3D scene if needed, but we need buttons to work */
             display: none;
             z-index: 100;
         }
@@ -263,11 +272,123 @@
         }
 
         @keyframes blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
+
+            0%,
+            49% {
+                opacity: 1;
+            }
+
+            50%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* 画面を激しく揺らすアニメーション */
+        @keyframes screen-shake {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            10% {
+                transform: translate(-5px, -5px);
+            }
+
+            20% {
+                transform: translate(5px, 5px);
+            }
+
+            30% {
+                transform: translate(-5px, 5px);
+            }
+
+            40% {
+                transform: translate(5px, -5px);
+            }
+
+            50% {
+                transform: translate(-5px, -2px);
+            }
+
+            60% {
+                transform: translate(5px, 2px);
+            }
+
+            70% {
+                transform: translate(-2px, -5px);
+            }
+
+            80% {
+                transform: translate(2px, 5px);
+            }
+
+            90% {
+                transform: translate(-2px, 2px);
+            }
+
+            100% {
+                transform: translate(0, 0);
+            }
+        }
+
+        /* クラスが付与された時だけ揺れる */
+        .shake-active {
+            animation: screen-shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        /* 画面全体（UI含む）を激しく揺らす */
+        @keyframes global-shake {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            10% {
+                transform: translate(-8px, -8px);
+            }
+
+            20% {
+                transform: translate(8px, 8px);
+            }
+
+            30% {
+                transform: translate(-8px, 8px);
+            }
+
+            40% {
+                transform: translate(8px, -8px);
+            }
+
+            50% {
+                transform: translate(-8px, -4px);
+            }
+
+            60% {
+                transform: translate(8px, 4px);
+            }
+
+            70% {
+                transform: translate(-4px, -8px);
+            }
+
+            80% {
+                transform: translate(4px, 8px);
+            }
+
+            90% {
+                transform: translate(-4px, 4px);
+            }
+
+            100% {
+                transform: translate(0, 0);
+            }
+        }
+
+        .screen-shake-active {
+            animation: global-shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
         }
     </style>
 </head>
+
 <body>
     <div id="loading-ui" class="loading-overlay">
         <div class="loading-container">
@@ -317,7 +438,7 @@
             <span class="dialog-arrow">▼</span>
         </div>
     </div>
-    
+
     <div id="ui">
         <p><span class="label">名前:</span> <span id="player-name" class="value">読み込み中...</span></p>
         <p><span class="label">現在地:</span></p>
@@ -340,4 +461,5 @@
     <!-- Game Scripts -->
     <script type="module" src="js/main.js"></script>
 </body>
+
 </html>

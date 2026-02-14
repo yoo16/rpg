@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { BATTLE_PHASE } from './constants.js';
 
 export class BattleSystem {
@@ -12,53 +13,34 @@ export class BattleSystem {
 
         this.phase = BATTLE_PHASE.PLAYER_TURN;
         this.enemy = null;
-        this.loader = new GLTFLoader();
 
-        // Battle Camera Settings
+        this.gltfLoader = new GLTFLoader();
+        this.fbxLoader = new FBXLoader();
+
         this.battleCameraPos = { x: 0, y: 3, z: 8 };
         this.battleCameraTarget = { x: 0, y: 1.0, z: 0 };
 
         this.setupUI();
     }
 
-    setupUI() {
-        const btnAttack = document.getElementById('btn-attack');
-        const btnRun = document.getElementById('btn-run');
+    async loadModel(url) {
+        if (!url) return null;
+        const ext = url.split('.').pop().toLowerCase();
+        const loader = (ext === 'fbx') ? this.fbxLoader : this.gltfLoader;
 
-        if (btnAttack) {
-            btnAttack.addEventListener('click', () => {
-                if (this.phase === BATTLE_PHASE.PLAYER_TURN) {
-                    this.onPlayerAttack();
-                }
+        return new Promise(resolve => {
+            loader.load(url, (data) => resolve(data), undefined, (err) => {
+                console.warn(`Failed to load model: ${url}`, err);
+                resolve(null);
             });
-        }
-
-        if (btnRun) {
-            btnRun.addEventListener('click', () => {
-                if (this.enemy &&
-                    this.phase !== BATTLE_PHASE.VICTORY &&
-                    this.phase !== BATTLE_PHASE.DEFEAT) {
-                    this.addBattleLog('💨 逃げ出した！');
-                    this.disableButtons();
-                    setTimeout(() => {
-                        this.endBattle(false);
-                    }, 1000);
-                }
-            });
-        }
+        });
     }
 
     async startBattle(possibleEnemyIds) {
         this.phase = BATTLE_PHASE.PLAYER_TURN;
-        console.log('⚔️ バトル開始！');
-
         try {
-            if (!possibleEnemyIds || possibleEnemyIds.length === 0) throw new Error('No enemies here');
-
             const randomEnemyId = possibleEnemyIds[Math.floor(Math.random() * possibleEnemyIds.length)];
             const enemyData = this.enemyMasterData[randomEnemyId];
-
-            if (!enemyData) throw new Error(`Enemy data not found for ${randomEnemyId}`);
 
             this.enemy = {
                 id: randomEnemyId,
@@ -66,24 +48,22 @@ export class BattleSystem {
                 color: enemyData.color,
                 scale: enemyData.scale,
                 model_url: enemyData.model_url,
+                attack_url: enemyData.attack_url,
                 y_offset: enemyData.y_offset || 0,
-                position: { x: 0, y: 0.5, z: 0 },
                 stats: {
-                    hp: enemyData.maxHp,
-                    maxHp: enemyData.maxHp,
-                    attack: enemyData.attack,
-                    defense: enemyData.defense
+                    hp: Number(enemyData.maxHp),
+                    maxHp: Number(enemyData.maxHp),
+                    attack: Number(enemyData.attack),
+                    defense: Number(enemyData.defense)
                 },
-                mesh: null,
-                mixer: null
+                idleMesh: null,
+                attackMesh: null,
+                idleMixer: null,
+                attackMixer: null
             };
-
-            // Full heal player at start of battle? (as per main.js)
-            this.player.stats.hp = this.player.stats.maxHp;
 
             await this.createEnemy();
 
-            // Set Camera
             this.camera.position.set(this.battleCameraPos.x, this.battleCameraPos.y, this.battleCameraPos.z);
             this.camera.lookAt(this.battleCameraTarget.x, this.battleCameraTarget.y, this.battleCameraTarget.z);
 
@@ -91,181 +71,265 @@ export class BattleSystem {
             this.updateBattleUI();
 
             setTimeout(() => {
-                this.addBattleLog('あなたのターン！ コマンドを選択してください。');
+                this.addBattleLog(`野生の ${this.enemy.name} があらわれた！`);
                 this.enableButtons();
             }, 500);
-
         } catch (error) {
-            console.error('Battle Start Error:', error);
+            console.error("Battle Start Error:", error);
             this.endBattle(false);
         }
     }
 
     async createEnemy() {
-        if (this.enemy.model_url) {
-            console.log(`👹 敵モデル読み込み中... ${this.enemy.model_url}`);
+        const [idleData, attackData] = await Promise.all([
+            this.loadModel(this.enemy.model_url),
+            this.loadModel(this.enemy.attack_url)
+        ]);
 
-            const gltf = await new Promise(resolve => {
-                this.loader.load(this.enemy.model_url, resolve, undefined, () => resolve(null));
-            });
+        const scale = this.enemy.scale || 1.0;
+        const y = this.enemy.y_offset || 0;
 
-            if (gltf) {
-                this.enemy.mesh = gltf.scene;
-                const scale = this.enemy.scale || 1.0;
-                this.enemy.mesh.scale.set(scale, scale, scale);
-
-                const y = this.enemy.y_offset !== undefined ? this.enemy.y_offset : 0;
-                this.enemy.mesh.position.set(this.enemy.position.x, y, this.enemy.position.z);
-
-                this.enemy.mesh.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                    }
-                });
-
-                if (gltf.animations && gltf.animations.length > 0) {
-                    this.enemy.mixer = new THREE.AnimationMixer(this.enemy.mesh);
-                    const anim = gltf.animations[0];
-                    const action = this.enemy.mixer.clipAction(anim);
-                    action.play();
-                }
-
-                this.battleGroup.add(this.enemy.mesh);
-                return;
-            }
+        if (idleData) {
+            this.enemy.idleMesh = idleData.scene || idleData;
+            this.setupEnemyMesh(this.enemy.idleMesh, scale, y);
+            this.enemy.idleMixer = new THREE.AnimationMixer(this.enemy.idleMesh);
+            const clip = idleData.animations[0];
+            if (clip) this.enemy.idleMixer.clipAction(clip).play();
+            this.battleGroup.add(this.enemy.idleMesh);
         }
 
-        // Fallback
-        const geometry = new THREE.SphereGeometry(this.enemy.scale * 0.5, 32, 32);
-        const material = new THREE.MeshLambertMaterial({ color: this.enemy.color });
-        this.enemy.mesh = new THREE.Mesh(geometry, material);
-        this.enemy.mesh.position.set(this.enemy.position.x, this.enemy.position.y, this.enemy.position.z);
-        this.enemy.mesh.castShadow = true;
-        this.enemy.mesh.receiveShadow = true;
-        this.battleGroup.add(this.enemy.mesh);
+        if (attackData) {
+            this.enemy.attackMesh = attackData.scene || attackData;
+            this.setupEnemyMesh(this.enemy.attackMesh, scale, y);
+            this.enemy.attackMesh.visible = false;
+            this.enemy.attackMixer = new THREE.AnimationMixer(this.enemy.attackMesh);
+            const clip = attackData.animations[0];
+            if (clip) {
+                const action = this.enemy.attackMixer.clipAction(clip);
+                action.setLoop(THREE.LoopOnce);
+                action.clampWhenFinished = true;
+            }
+            this.battleGroup.add(this.enemy.attackMesh);
+        }
     }
 
-    onPlayerAttack() {
-        if (this.phase !== BATTLE_PHASE.PLAYER_TURN) return;
-
-        this.disableButtons();
-
-        const damage = Math.max(this.player.stats.attack - this.enemy.stats.defense, 1);
-        this.addBattleLog(`⚔️ あなたの攻撃！ ${damage} のダメージ！`);
-        this.enemy.stats.hp -= damage;
-
-        this.flashMesh(this.enemy.mesh, '#ff0000');
-        this.updateBattleUI();
-
-        if (this.enemy.stats.hp <= 0) {
-            this.phase = BATTLE_PHASE.VICTORY;
-            this.addBattleLog('🎉 敵を倒した！');
-            setTimeout(() => this.endBattle(true), 1500);
-            return;
-        }
-
-        this.phase = BATTLE_PHASE.ENEMY_TURN;
-        setTimeout(() => this.onEnemyAttack(), 1500);
+    setupEnemyMesh(mesh, scale, y) {
+        mesh.scale.set(scale, scale, scale);
+        mesh.position.set(0, y, 0);
+        mesh.traverse(node => {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                if (node.material) {
+                    node.material = Array.isArray(node.material) ?
+                        node.material.map(m => m.clone()) : node.material.clone();
+                }
+            }
+        });
     }
 
     onEnemyAttack() {
         if (this.phase !== BATTLE_PHASE.ENEMY_TURN) return;
 
-        const damage = Math.max(this.enemy.stats.attack - this.player.stats.defense, 1);
-        this.addBattleLog(`👹 敵の攻撃！ ${damage} のダメージ！`);
-        this.player.stats.hp -= damage;
+        // 1. 攻撃開始：モデル切り替え
+        let animDuration = 1000; // デフォルト値
+        if (this.enemy.attackMesh && this.enemy.idleMesh) {
+            this.enemy.idleMesh.visible = false;
+            this.enemy.attackMesh.visible = true;
 
-        this.shakeCamera();
-        this.updateBattleUI();
+            const clip = this.enemy.attackMesh.animations[0];
+            animDuration = clip ? clip.duration * 1000 : 1000;
 
-        if (this.player.stats.hp <= 0) {
-            this.phase = BATTLE_PHASE.DEFEAT;
-            this.addBattleLog('💀 あなたは倒れた...');
-            setTimeout(() => this.endBattle(false), 1500);
-            return;
+            const action = this.enemy.attackMixer.clipAction(clip);
+            action.reset().play();
         }
 
-        this.phase = BATTLE_PHASE.PLAYER_TURN;
-        this.addBattleLog('あなたのターン！');
-        this.enableButtons();
+        // 2. 攻撃完了（アニメーションが半分〜終わる頃）に画面を揺らす
+        const hitTiming = animDuration * 0.6; // 60%くらいでヒットと仮定
+        const waitAfterAttack = 800;
+
+        setTimeout(() => {
+            const damage = Math.max(this.enemy.stats.attack - this.player.stats.defense, 1);
+            this.player.stats.hp -= damage;
+
+            this.addBattleLog(`👹 ${this.enemy.name} の攻撃！ ${damage} のダメージ！`);
+
+            // 画面を揺らす
+            // this.shakeCamera();
+            // this.shakeCanvas();
+            this.shakeScreen();
+            this.updateBattleUI();
+
+        }, hitTiming);
+
+        // 3. 全工程終了後に待機ポーズへ戻る
+        setTimeout(() => {
+            if (this.enemy.attackMesh && this.enemy.idleMesh) {
+                this.enemy.attackMesh.visible = false;
+                this.enemy.idleMesh.visible = true;
+            }
+
+            if (this.player.stats.hp <= 0) {
+                this.phase = BATTLE_PHASE.DEFEAT;
+                this.addBattleLog('💀 あなたは倒れた...');
+                setTimeout(() => this.endBattle(false), 1500);
+            } else {
+                this.phase = BATTLE_PHASE.PLAYER_TURN;
+                this.addBattleLog('あなたのターン！');
+                this.enableButtons();
+            }
+        }, animDuration + waitAfterAttack);
     }
 
-    endBattle(isVictory) {
-        if (this.enemy && this.enemy.mesh) {
-            if (this.enemy.mixer) {
-                this.enemy.mixer = null;
-            }
-            // Dispose
-            this.enemy.mesh.traverse((node) => {
-                if (node.isMesh) {
-                    node.geometry.dispose();
-                    if (node.material.map) node.material.map.dispose();
-                    node.material.dispose();
-                }
-            });
-            this.battleGroup.remove(this.enemy.mesh);
-        }
-        this.enemy = null;
-        this.hideBattleUI();
+    // 強化版：カメラシェイク演出
+    shakeCamera() {
+        const originalPos = new THREE.Vector3().copy(this.camera.position);
+        // 揺れる時間(ms)
+        const duration = 400;
+        // 揺れる幅
+        const range = 1.5;
+        const start = Date.now();
 
-        if (this.onBattleEnd) {
-            this.onBattleEnd(isVictory);
-        }
+        const animateShake = () => {
+            const elapsed = Date.now() - start;
+            if (elapsed < duration) {
+                const progress = 1 - (elapsed / duration);
+                // 時間とともに揺れを弱める
+                const intensity = range * progress;
+
+                this.camera.position.x = originalPos.x + (Math.random() - 0.5) * intensity;
+                this.camera.position.y = originalPos.y + (Math.random() - 0.5) * intensity;
+
+                requestAnimationFrame(animateShake);
+            } else {
+                // 元の位置に復帰
+                this.camera.position.copy(originalPos);
+            }
+        };
+        animateShake();
+    }
+
+    shakeCanvas() {
+        const canvas = document.querySelector('canvas');
+        if (!canvas) return;
+        canvas.classList.remove('shake-active');
+        canvas.classList.add('shake-active');
+        setTimeout(() => {
+            canvas.classList.remove('shake-active');
+        }, 400);
+    }
+
+    shakeScreen() {
+        const container = document.getElementById('game-container') || document.body;
+        container.classList.remove('screen-shake-active');
+        void container.offsetWidth;
+        container.classList.add('screen-shake-active');
+        setTimeout(() => {
+            container.classList.remove('screen-shake-active');
+        }, 400);
     }
 
     update(delta) {
-        if (this.enemy && this.enemy.mixer) {
-            this.enemy.mixer.update(delta);
+        if (this.enemy) {
+            if (this.enemy.idleMixer) {
+                this.enemy.idleMixer.update(delta);
+                this.resetRootPosition(this.enemy.idleMesh);
+            }
+            if (this.enemy.attackMixer) {
+                this.enemy.attackMixer.update(delta);
+                this.resetRootPosition(this.enemy.attackMesh);
+            }
         }
     }
 
-    // UI Helpers
-    showBattleUI() {
-        const battleUI = document.getElementById('battle-ui');
-        const battleMessage = document.getElementById('battle-message');
-        if (battleMessage) battleMessage.textContent = `⚔️ 野生の ${this.enemy.name} があらわれた！`;
-        if (battleUI) battleUI.style.display = 'block';
+    resetRootPosition(model) {
+        if (!model) return;
+        model.traverse(node => {
+            if (node.isBone && (node.name.toLowerCase().includes('hips') || node.name.toLowerCase().includes('root'))) {
+                node.position.x = 0;
+                node.position.z = 0;
+            }
+        });
     }
 
-    hideBattleUI() {
-        const battleUI = document.getElementById('battle-ui');
-        if (battleUI) battleUI.style.display = 'none';
+    endBattle(isVictory) {
+        [this.enemy.idleMesh, this.enemy.attackMesh].forEach(mesh => {
+            if (mesh) {
+                mesh.traverse(node => {
+                    if (node.isMesh) {
+                        node.geometry.dispose();
+                        const mats = Array.isArray(node.material) ? node.material : [node.material];
+                        mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                    }
+                });
+                this.battleGroup.remove(mesh);
+            }
+        });
+        this.enemy = null;
+        this.hideBattleUI();
+        if (this.onBattleEnd) this.onBattleEnd(isVictory);
+    }
+
+    setupUI() {
+        const btnAttack = document.getElementById('btn-attack');
+        const btnRun = document.getElementById('btn-run');
+        if (btnAttack) btnAttack.onclick = () => this.onPlayerAttack();
+        if (btnRun) btnRun.onclick = () => {
+            if (this.phase === BATTLE_PHASE.PLAYER_TURN) {
+                this.addBattleLog('💨 逃げ出した！');
+                this.disableButtons();
+                setTimeout(() => this.endBattle(false), 1000);
+            }
+        };
+    }
+
+    onPlayerAttack() {
+        if (this.phase !== BATTLE_PHASE.PLAYER_TURN) return;
+        this.disableButtons();
+        const damage = Math.max(this.player.stats.attack - this.enemy.stats.defense, 1);
+        this.enemy.stats.hp -= damage;
+        this.addBattleLog(`⚔️ あなたの攻撃！ ${this.enemy.name} に ${damage} のダメージ！`);
+        this.shakeCanvas();
+        this.flashMesh(this.enemy.idleMesh, '#ff0000');
+        this.updateBattleUI();
+        if (this.enemy.stats.hp <= 0) {
+            this.phase = BATTLE_PHASE.VICTORY;
+            setTimeout(() => {
+                this.addBattleLog('🎉 勝利！');
+                setTimeout(() => this.endBattle(true), 1500);
+            }, 1000);
+        } else {
+            this.phase = BATTLE_PHASE.ENEMY_TURN;
+            setTimeout(() => this.onEnemyAttack(), 1000);
+        }
     }
 
     updateBattleUI() {
+        if (!this.enemy || !this.player) return;
         const enemyHPPercent = Math.max(0, (this.enemy.stats.hp / this.enemy.stats.maxHp) * 100);
         const enemyBar = document.getElementById('enemy-hp-bar');
         const enemyText = document.getElementById('enemy-hp-text');
-        const enemyName = document.getElementById('enemy-name');
-
-        if (enemyBar) enemyBar.style.width = enemyHPPercent + '%';
-        if (enemyText) enemyText.textContent = `${Math.max(0, this.enemy.stats.hp)}/${this.enemy.stats.maxHp}`;
-        if (enemyName) enemyName.textContent = this.enemy.name;
-
+        if (enemyBar) enemyBar.style.width = `${enemyHPPercent}%`;
+        if (enemyText) enemyText.textContent = `${Math.max(0, Math.floor(this.enemy.stats.hp))}/${this.enemy.stats.maxHp}`;
         const playerHPPercent = Math.max(0, (this.player.stats.hp / this.player.stats.maxHp) * 100);
         const playerBar = document.getElementById('player-hp-bar');
         const playerText = document.getElementById('player-hp-text');
-
         if (playerBar) {
-            playerBar.style.width = playerHPPercent + '%';
+            playerBar.style.width = `${playerHPPercent}%`;
             playerBar.style.backgroundColor = playerHPPercent < 30 ? '#ff6666' : '#66ff66';
         }
-        if (playerText) playerText.textContent = `${Math.max(0, this.player.stats.hp)}/${this.player.stats.maxHp}`;
+        if (playerText) playerText.textContent = `${Math.max(0, Math.floor(this.player.stats.hp))}/${this.player.stats.maxHp}`;
     }
 
-    addBattleLog(message) {
-        const el = document.getElementById('battle-message');
-        if (el) el.textContent = message;
-    }
-
+    showBattleUI() { const ui = document.getElementById('battle-ui'); if (ui) ui.style.display = 'block'; }
+    hideBattleUI() { const ui = document.getElementById('battle-ui'); if (ui) ui.style.display = 'none'; }
+    addBattleLog(msg) { const el = document.getElementById('battle-message'); if (el) el.textContent = msg; }
     enableButtons() {
         const btnAttack = document.getElementById('btn-attack');
         const btnRun = document.getElementById('btn-run');
         if (btnAttack) btnAttack.disabled = false;
         if (btnRun) btnRun.disabled = false;
     }
-
     disableButtons() {
         const btnAttack = document.getElementById('btn-attack');
         const btnRun = document.getElementById('btn-run');
@@ -278,18 +342,12 @@ export class BattleSystem {
         const originalColors = new Map();
         mesh.traverse((child) => {
             if (child.isMesh && child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(mat => {
-                        if (mat.color) originalColors.set(mat, mat.color.getHex());
-                    });
-                } else if (child.material.color) {
-                    originalColors.set(child.material, child.material.color.getHex());
-                }
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach(mat => {
+                    if (mat.color) originalColors.set(mat, mat.color.getHex());
+                });
             }
         });
-
-        if (originalColors.size === 0) return;
-
         let toggle = false;
         const interval = setInterval(() => {
             originalColors.forEach((originalColor, material) => {
@@ -297,26 +355,9 @@ export class BattleSystem {
             });
             toggle = !toggle;
         }, 50);
-
         setTimeout(() => {
             clearInterval(interval);
-            originalColors.forEach((originalColor, material) => {
-                material.color.setHex(originalColor);
-            });
+            originalColors.forEach((originalColor, material) => material.color.setHex(originalColor));
         }, 300);
-    }
-
-    shakeCamera() {
-        const originalPos = this.camera.position.clone();
-        let shake = 5;
-        const interval = setInterval(() => {
-            this.camera.position.x = originalPos.x + (Math.random() - 0.5) * 0.2;
-            this.camera.position.y = originalPos.y + (Math.random() - 0.5) * 0.2;
-            shake--;
-            if (shake <= 0) {
-                clearInterval(interval);
-                this.camera.position.copy(originalPos);
-            }
-        }, 50);
     }
 }

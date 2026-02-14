@@ -26,20 +26,16 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 // --- 変数管理 ---
-let currentWrapper = null; // モデルを包むグループ
+let currentWrapper = null;
 let mixer = null;
 const clock = new THREE.Clock();
-
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
 
-/**
- * リソース解決の設定
- */
+// --- 補助関数 ---
 function setupResourceMapping(files) {
     const fileMap = new Map();
     files.forEach(file => fileMap.set(file.name, file));
-
     manager.setURLModifier((url) => {
         const fileName = url.split('/').pop();
         const file = fileMap.get(fileName);
@@ -48,30 +44,24 @@ function setupResourceMapping(files) {
     });
 }
 
-/**
- * カメラ位置の自動調整
- */
 function fitCamera(object) {
     const box = new THREE.Box3().setFromObject(object);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-
     const fov = camera.fov * (Math.PI / 180);
     let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
-
     camera.position.set(center.x + cameraDistance, center.y + (maxDim / 2), center.z + cameraDistance);
     camera.lookAt(center);
     controls.target.copy(center);
     controls.update();
 }
 
-// --- メインイベント ---
+// --- イベントリスナー ---
 document.getElementById('fileInput').addEventListener('change', (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
 
-    // 前のモデル（ラッパーごと）を削除
     if (currentWrapper) scene.remove(currentWrapper);
     mixer = null;
 
@@ -84,7 +74,6 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
     }
 
     const rootUrl = URL.createObjectURL(rootFile);
-
     loader.load(rootUrl, (gltf) => {
         const model = gltf.scene;
 
@@ -96,16 +85,12 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
             }
         });
 
-        // --- 修正ポイント：ラッパー（Group）の作成 ---
-        // モデルを直接回すとアニメーションと競合することがあるため、親を作って回す
         currentWrapper = new THREE.Group();
         currentWrapper.add(model);
 
-        // Z-upモデルが倒れている場合の補正（必要に応じて +Math.PI / 2 に変更）
-        // 多くの倒れるモデルはX軸で-90度回転させると立ち上がります
-        // currentWrapper.rotation.x = Math.PI / 2;
+        // Z-up対策の回転
+        currentWrapper.rotation.x = -Math.PI / 2;
 
-        // アニメーション再生（mixerの対象は元のmodelでOK）
         if (gltf.animations && gltf.animations.length > 0) {
             mixer = new THREE.AnimationMixer(model);
             mixer.clipAction(gltf.animations[0]).play();
@@ -113,12 +98,11 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
 
         scene.add(currentWrapper);
         fitCamera(currentWrapper);
-
         URL.revokeObjectURL(rootUrl);
     });
 });
 
-// リサイズ・アニメーション
+// --- リサイズ・アニメーション（イベントの外に出す） ---
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();

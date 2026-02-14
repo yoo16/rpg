@@ -59,8 +59,7 @@ export class Game {
             ]);
 
             this.enemyMasterData = enemyResponse.data.enemies;
-            this.mapManager.init(mapResponse.data.map); // Init map data but meshes created via accessing properties? 
-            // mapManager.init calls createMap which populates mapManager.group
+            this.mapManager.init(mapResponse.data.map);
             this.worldGroup.add(this.mapManager.group);
 
             await this.player.init(playerResponse.data.player, mapResponse.data.map);
@@ -259,9 +258,9 @@ export class Game {
         // mapManager check
         const result = this.mapManager.checkNPCProximity(this.player.gridX, this.player.gridZ, this.currentNPCId);
 
-        if (result.npc) {
+        if (result && result.npc) {
             this.startNPCDialog(result.npc);
-        } else if (!result.adjacent) {
+        } else if (result && !result.adjacent) {
             this.currentNPCId = null;
         }
     }

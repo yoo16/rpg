@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 敵マスターデータ取得API
  * GET /api/get_enemies.php
@@ -23,8 +24,10 @@ $enemyData = [
         'defense' => 1,
         'color' => '#00dd00',
         'scale' => 0.02,
-        'model_url' => 'assets/models/parrot.glb',
-        'y_offset' => 1.5
+        // 'model_url' => 'assets/models/parrot.glb',
+        'model_url' => 'assets/fbx/enemy1_idle.fbx',
+        'attack_url' => 'assets/fbx/enemy1_attack.fbx',
+        'y_offset' => -2.0
     ],
     'e002' => [
         'name' => 'ふらふらみんご',
@@ -34,18 +37,35 @@ $enemyData = [
         'defense' => 2,
         'color' => '#aa7755',
         'scale' => 0.02,
-        'model_url' => 'assets/models/flamingo.glb',
-        'y_offset' => 1.0
+        // 'model_url' => 'assets/models/flamingo.glb',
+        'model_url' => 'assets/fbx/enemy2_idle.fbx',
+        'attack_url' => 'assets/fbx/enemy2_attack.fbx',
+        'y_offset' => -1.2
     ],
     'e003' => [
         'name' => 'うまー',
+        'hp' => 100,
+        'maxHp' => 100,
+        'attack' => 15,
+        'defense' => 4,
+        'color' => '#ff3333',
+        'scale' => 0.02,
+        // 'model_url' => 'assets/models/horse.glb',
+        'model_url' => 'assets/fbx/enemy3_idle.fbx',
+        'attack_url' => 'assets/fbx/enemy3_attack.fbx',
+        'y_offset' => 0
+    ],
+    'e004' => [
+        'name' => 'ボス',
         'hp' => 200,
         'maxHp' => 200,
         'attack' => 25,
         'defense' => 5,
         'color' => '#ff3333',
         'scale' => 0.015,
-        'model_url' => 'assets/models/horse.glb',
+        // 'model_url' => 'assets/models/horse.glb',
+        'model_url' => 'assets/fbx/enemy4_idle.fbx',
+        'attack_url' => 'assets/fbx/enemy4_attack.fbx',
         'y_offset' => 0
     ]
 ];
@@ -56,4 +76,3 @@ echo json_encode([
         'enemies' => $enemyData
     ]
 ]);
-?>

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE } from './constants.js';
 
 export class MapManager {
@@ -8,8 +9,9 @@ export class MapManager {
         this.mapData = null;
         this.mapMeshes = [];
         this.npcMeshes = [];
-        this.loader = new GLTFLoader();
-        this.mixers = []; // Animation mixers for NPCs
+        this.gltfLoader = new GLTFLoader();
+        this.fbxLoader = new FBXLoader();
+        this.mixers = []; // {mixer, model} のペアで管理
     }
 
     init(mapData) {
@@ -17,11 +19,15 @@ export class MapManager {
         this.createMap();
     }
 
-    loadModel(url) {
-        return new Promise((resolve, reject) => {
-            this.loader.load(
+    async loadModel(url) {
+        if (!url) return null;
+        const ext = url.split('.').pop().toLowerCase();
+        const loader = (ext === 'fbx') ? this.fbxLoader : this.gltfLoader;
+
+        return new Promise((resolve) => {
+            loader.load(
                 url,
-                (gltf) => resolve(gltf),
+                (data) => resolve(data),
                 undefined,
                 (error) => {
                     console.warn(`Failed to load model: ${url}`, error);
@@ -31,19 +37,132 @@ export class MapManager {
         });
     }
 
+    async createNPCs() {
+        if (!this.mapData.npcs) return;
+
+        console.log(`👥 ${this.mapData.npcs.length} 体のNPCを読み込み中...`);
+
+        for (const npcData of this.mapData.npcs) {
+            let npcGroup = new THREE.Group();
+            const modelUrl = npcData.model_url;
+            const walkUrl = npcData.anim_walk_url;
+            const scale = npcData.scale || 0.5;
+
+            const [mainData, walkData] = await Promise.all([
+                this.loadModel(modelUrl),
+                this.loadModel(walkUrl)
+            ]);
+
+            let idleModel = null;
+            let walkModel = null;
+
+            if (mainData) {
+                idleModel = mainData.scene || mainData;
+                this.setupNPCModel(idleModel, scale);
+                npcGroup.add(idleModel);
+
+                const mixer = new THREE.AnimationMixer(idleModel);
+                this.mixers.push({ mixer, model: idleModel });
+
+                const idleClip = mainData.animations.find(a => a.name.toLowerCase().includes('idle')) || mainData.animations[0];
+                if (idleClip) {
+                    const action = mixer.clipAction(idleClip);
+                    action.loop = THREE.LoopRepeat;
+                    action.fadeIn(0.2); // ループの繋ぎ目を補正
+                    action.play();
+                    mixer.setTime(Math.random() * idleClip.duration);
+                }
+            }
+
+            if (walkData) {
+                walkModel = walkData.scene || walkData;
+                this.setupNPCModel(walkModel, scale);
+                npcGroup.add(walkModel);
+                walkModel.visible = false;
+
+                const mixer = new THREE.AnimationMixer(walkModel);
+                this.mixers.push({ mixer, model: walkModel });
+
+                const walkClip = walkData.animations[0];
+                if (walkClip) {
+                    const action = mixer.clipAction(walkClip);
+                    action.loop = THREE.LoopRepeat;
+                    action.fadeIn(0.2); // ループの繋ぎ目を補正
+                    action.play();
+                    mixer.setTime(Math.random() * walkClip.duration);
+                }
+            }
+
+            if (!mainData) {
+                const geometry = new THREE.CylinderGeometry(0.3, 0.3, 1.0, 8);
+                const material = new THREE.MeshLambertMaterial({ color: npcData.color || 0x0000FF });
+                const fallbackMesh = new THREE.Mesh(geometry, material);
+                fallbackMesh.position.y = 0.5;
+                npcGroup.add(fallbackMesh);
+            }
+
+            const worldX = npcData.x * TILE_SIZE;
+            const worldZ = npcData.z * TILE_SIZE;
+            npcGroup.position.set(worldX, 0, worldZ);
+
+            npcGroup.userData = {
+                type: 'npc',
+                id: npcData.id,
+                name: npcData.name,
+                x: npcData.x,
+                z: npcData.z,
+                dialogues: npcData.dialogues,
+                idleModel: idleModel,
+                walkModel: walkModel
+            };
+
+            this.group.add(npcGroup);
+            this.npcMeshes.push(npcGroup);
+        }
+    }
+
+    setupNPCModel(model, scale) {
+        model.scale.set(scale, scale, scale);
+        model.traverse((node) => {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                if (node.material) node.material = node.material.clone();
+            }
+        });
+    }
+
+    update(delta) {
+        for (const item of this.mixers) {
+            item.mixer.update(delta);
+            // アニメーション更新直後にルートボーンの位置をリセット
+            this.resetRootPosition(item.model);
+        }
+    }
+
+    resetRootPosition(model) {
+        if (!model) return;
+        model.traverse(node => {
+            if (node.isBone && (
+                node.name.toLowerCase().includes('hips') ||
+                node.name.toLowerCase().includes('root') ||
+                node.name.toLowerCase().includes('pelvis')
+            )) {
+                // 水平移動をキャンセルして「その場」でアニメーションさせる
+                node.position.x = 0;
+                node.position.z = 0;
+            }
+        });
+    }
+
     createMap() {
-        console.log('🗺️ マップ生成中...');
         const { tiles, width, height } = this.mapData;
-
-        // Clear existing map if any
         this.clearMap();
-
         for (let z = 0; z < height; z++) {
             for (let x = 0; x < width; x++) {
                 const tileType = tiles[z][x];
                 const worldX = x * TILE_SIZE;
                 const worldZ = z * TILE_SIZE;
-
                 switch (tileType) {
                     case 0: this.createFloor(worldX, worldZ); break;
                     case 1: this.createWall(worldX, worldZ); break;
@@ -54,26 +173,18 @@ export class MapManager {
     }
 
     clearMap() {
-        // Dispose geometries and materials
         this.mapMeshes.forEach(mesh => {
             if (mesh.geometry) mesh.geometry.dispose();
             if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
+                if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
+                else mesh.material.dispose();
             }
             this.group.remove(mesh);
         });
         this.mapMeshes = [];
-
-        this.npcMeshes.forEach(mesh => {
-            if (mesh.geometry) mesh.geometry.dispose();
-            // Dispose materials...
-            this.group.remove(mesh);
-        });
+        this.npcMeshes.forEach(group => this.group.remove(group));
         this.npcMeshes = [];
+        this.mixers = [];
     }
 
     createFloor(x, z) {
@@ -109,70 +220,6 @@ export class MapManager {
         this.mapMeshes.push(mesh);
     }
 
-    async createNPCs() {
-        if (!this.mapData.npcs) return;
-
-        console.log(`👥 ${this.mapData.npcs.length} 体のNPCを読み込み中...`);
-
-        for (const npcData of this.mapData.npcs) {
-            let mesh = null;
-            const modelUrl = npcData.model_url;
-            const scale = npcData.scale || 0.5;
-
-            let gltf = null;
-            if (modelUrl) {
-                gltf = await this.loadModel(modelUrl);
-            }
-
-            if (gltf) {
-                mesh = gltf.scene;
-                mesh.scale.set(scale, scale, scale);
-                mesh.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                    }
-                });
-
-                if (gltf.animations && gltf.animations.length > 0) {
-                    const mixer = new THREE.AnimationMixer(mesh);
-                    this.mixers.push(mixer);
-                    const idleAnim = gltf.animations.find(a => a.name.toLowerCase().includes('idle')) || gltf.animations[0];
-                    if (idleAnim) {
-                        mixer.clipAction(idleAnim).play();
-                    }
-                }
-
-            } else {
-                const geometry = new THREE.CylinderGeometry(0.3, 0.3, 1.0, 8);
-                const material = new THREE.MeshLambertMaterial({ color: npcData.color || 0x0000FF });
-                mesh = new THREE.Mesh(geometry, material);
-            }
-
-            const worldX = npcData.x * TILE_SIZE;
-            const worldZ = npcData.z * TILE_SIZE;
-            mesh.position.set(worldX, 0, worldZ);
-
-            mesh.userData = {
-                type: 'npc',
-                id: npcData.id,
-                name: npcData.name,
-                x: npcData.x,
-                z: npcData.z,
-                dialogues: npcData.dialogues
-            };
-
-            this.group.add(mesh);
-            this.npcMeshes.push(mesh);
-        }
-    }
-
-    update(delta) {
-        for (const mixer of this.mixers) {
-            mixer.update(delta);
-        }
-    }
-
     getEventAt(x, z) {
         return this.mapData.events?.find(ev => ev.x === x && ev.z === z);
     }
@@ -189,20 +236,17 @@ export class MapManager {
     checkNPCProximity(playerX, playerZ, currentNPCId) {
         let adjacentToAny = false;
         let foundNPC = null;
-
         for (const npcMesh of this.npcMeshes) {
             const npcX = npcMesh.userData.x;
             const npcZ = npcMesh.userData.z;
             const isAdjacent = (playerX === npcX && Math.abs(playerZ - npcZ) === 1) || (playerZ === npcZ && Math.abs(playerX - npcX) === 1);
-
             if (isAdjacent) {
                 adjacentToAny = true;
-                if (currentNPCId === npcMesh.userData.id) return null; // Already interacting or recently interacted
+                if (currentNPCId === npcMesh.userData.id) return null;
                 foundNPC = npcMesh.userData;
                 break;
             }
         }
-
         return { adjacent: adjacentToAny, npc: foundNPC };
     }
 }
