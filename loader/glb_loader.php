@@ -92,7 +92,7 @@
             }
         }
     </script>
-    <script type="module" src="js/loader.js"></script>
+    <script type="module" src="../js/loader.js"></script>
 </body>
 
 </html>

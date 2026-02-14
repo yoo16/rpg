@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>GLB Texture Mapper</title>
+    <title>glTF Multi-File Loader</title>
     <style>
         body {
             margin: 0;
@@ -21,30 +21,29 @@
             background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 8px;
-            width: 320px;
-            border: 1px solid #444;
-        }
-
-        .info {
-            font-size: 0.8em;
-            color: #aaa;
-            margin-top: 10px;
-            line-height: 1.5;
+            width: 300px;
         }
 
         input[type="file"] {
             margin-top: 10px;
-            color: #fff;
+            color: #ccc;
+        }
+
+        .info {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 10px;
+            line-height: 1.5;
         }
     </style>
 </head>
 
 <body>
     <div id="ui">
-        <strong>GLB & Texture Loader</strong><br>
-        <input type="file" id="fileInput" accept=".glb,.png,.jpg,.jpeg" multiple>
+        <strong>glTF Standard Loader</strong><br>
+        <input type="file" id="fileInput" accept=".gltf,.bin,.glb,image/*" multiple>
         <div class="info">
-            本体の .glb と、使用する .png テクスチャを<strong>すべて同時に選択</strong>して開いてください。
+            ※ .gltf を読み込む場合は、関連する .bin やテクスチャ画像も<strong>すべて同時に選択</strong>して開いてください。
         </div>
     </div>
 
@@ -56,7 +55,7 @@
             }
         }
     </script>
-    <script type="module" src="js/glb_texture_loader.js"></script>
+    <script type="module" src="../js/gltf_loader.js"></script>
 </body>
 
 </html>
