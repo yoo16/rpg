@@ -15,11 +15,11 @@ export class Player {
         this.actions = {};
         this.currentAction = null;
         this.stats = null;
-        this.name = '勇者';
+        this.name = 'Hero';
         this.direction = DIRECTION.DOWN;
         this.isMoving = false;
         this.targetPosition = null;
-        this.rotationTarget = Math.PI; // Default DOWN
+        this.rotationTarget = Math.PI;
 
         this.loader = new GLTFLoader();
     }
@@ -28,8 +28,6 @@ export class Player {
         this.stats = JSON.parse(JSON.stringify(playerData.stats));
         this.name = playerData.name;
 
-        // Asset info from mapData (for player model overrides per map? or global?)
-        // main.js used this.mapData.player_assets. 
         const assetInfo = mapData.player_assets;
         const modelUrl = assetInfo ? assetInfo.model_url : null;
         const scale = assetInfo ? (assetInfo.scale || 0.5) : 0.5;

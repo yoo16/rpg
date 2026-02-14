@@ -1,1 +1,6 @@
 prompt/*
+assets/*
+*.glb
+*.gltf
+*.png
+.DS_Store
