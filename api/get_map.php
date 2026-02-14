@@ -1,4 +1,5 @@
 <?php
+
 /**
  * マップデータ取得API
  * GET /api/get_map.php?id=1
@@ -47,7 +48,7 @@ $mapData = [
         1 => 'wall',
         2 => 'water'
     ],
-    'encounter_rate' => 0.1,
+    'encounter_rate' => 0.02,
     'possible_enemies' => ['e001', 'e002', 'e003'],
     'player_assets' => [
         'model_url' => 'assets/models/player.glb',
@@ -90,7 +91,7 @@ $mapData = [
             'message' => 'この場所は聖域。体力が全快した！'
         ]
     ]
-    ];
+];
 
 echo json_encode([
     'status' => 'success',
@@ -98,4 +99,3 @@ echo json_encode([
         'map' => $mapData
     ]
 ]);
-?>
