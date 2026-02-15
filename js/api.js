@@ -77,33 +77,19 @@ export default class GameApi {
      */
     static async getPlayerInitData() {
         try {
-            // プレイヤーデータはサーバーから取得（現在はクライアント側で定義）
-            const playerData = {
-                status: 'success',
-                data: {
-                    player: {
-                        id: 'p001',
-                        name: '勇者',
-                        color: '#ff0000',
-                        size: 1.0,
-                        position: {
-                            x: 0,
-                            y: 0,
-                            z: 0
-                        },
-                        stats: {
-                            hp: 100,
-                            maxHp: 100,
-                            attack: 15,
-                            defense: 5
-                        }
-                    }
-                }
-            };
-            console.log('%c👤 プレイヤーデータを初期化しました', 'color: #0f0; font-weight: bold;');
-            return playerData;
+            // 固定値ではなく、サーバーから取得するように修正
+            const response = await fetch(`${this.BASE_URL}/get_player.php`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('%c👤 プレイヤーデータをサーバーから取得しました', 'color: #0f0; font-weight: bold;');
+            return data;
         } catch (error) {
             console.error('❌ プレイヤーデータ取得エラー:', error);
+            // 失敗時に備えて、ここではエラーを投げて Game.js 側でハンドリングさせる
             throw error;
         }
     }

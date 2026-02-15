@@ -282,22 +282,25 @@ export class BattleSystem {
         if (this.onBattleEnd) this.onBattleEnd(isVictory);
     }
 
+    // BattleSystem.js
     updateBattleUI() {
         if (!this.enemy || !this.player) return;
 
-        // 敵HP更新
-        const eHP = Math.max(0, (this.enemy.stats.hp / this.enemy.stats.maxHp) * 100);
+        // 1. 敵のHP更新（これはバトル固有なのでここでやる）
+        const ePercent = Math.min(100, Math.max(0, (this.enemy.stats.hp / this.enemy.stats.maxHp) * 100));
         const eBar = document.getElementById('enemy-hp-bar');
+        if (eBar) {
+            eBar.style.width = `${ePercent}%`;
+        }
         const eText = document.getElementById('enemy-hp-text');
-        if (eBar) eBar.style.width = `${eHP}%`;
-        if (eText) eText.textContent = `${Math.floor(Math.max(0, this.enemy.stats.hp))}/${this.enemy.stats.maxHp}`;
+        if (eText) {
+            eText.textContent = `${Math.floor(this.enemy.stats.hp)} / ${this.enemy.stats.maxHp}`;
+        }
 
-        // プレイヤーHP更新
-        const pHP = Math.max(0, (this.player.stats.hp / this.player.stats.maxHp) * 100);
-        const pBar = document.getElementById('player-hp-bar');
-        const pText = document.getElementById('player-hp-text');
-        if (pBar) pBar.style.width = `${pHP}%`;
-        if (pText) pText.textContent = `${Math.floor(Math.max(0, this.player.stats.hp))}/${this.player.stats.maxHp}`;
+        // 2. プレイヤーのHP更新（共通処理を呼び出す）
+        if (window.game) {
+            window.game.updateAllStatusUI();
+        }
     }
 
     setupUI() {

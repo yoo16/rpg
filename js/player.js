@@ -248,4 +248,10 @@ export class Player {
     updatePlayerPosition() {
         if (this.mesh) this.mesh.position.set(this.gridX * TILE_SIZE, 0, this.gridZ * TILE_SIZE);
     }
+
+    get hpPercent() {
+        if (!this.stats || this.stats.maxHp <= 0) return 0;
+        return Math.min(100, Math.max(0, (this.stats.hp / this.stats.maxHp) * 100));
+    }
+
 }

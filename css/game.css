@@ -76,7 +76,7 @@ body {
 }
 
 /* Main UI */
-#debug-ui {
+#player-status-ui {
     position: absolute;
     top: 20px;
     left: 20px;
@@ -178,16 +178,23 @@ body {
     filter: grayscale(1);
 }
 
+/* バーの親（グレーの背景部分） */
 .hp-bar-container {
-    width: 100%;
-    height: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    margin: 5px 0;
+    width: 200px;
+    height: 20px;
+    background-color: #333;
+    border: 2px solid #555;
+    overflow: hidden;
+    position: relative;
 }
 
-.hp-fill {
+/* 実際に伸び縮みするバー */
+.hp-bar-fill {
     height: 100%;
-    transition: width 0.3s ease;
+    background-color: #f00;
+    width: 100%;
+    max-width: 100%;
+    transition: width 0.3s ease-out;
 }
 
 .hp-text {

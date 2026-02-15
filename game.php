@@ -37,19 +37,19 @@
             </div>
         </div>
 
-        <?php if (true): ?>
-            <div id="debug-ui">
-                <div class="status-panel">
-                    <p><span id="player-name" class="value">読み込み中...</span></p>
-                    <p><span id="player-level" class="value">Lv.1</span></p>
-                    <div class="hp-bar-container">
-                        <div id="player-hp-bar" class="hp-fill" style="width: 100%; background-color: var(--safe-color);"></div>
-                    </div>
-                    <span id="player-hp-text" class="hp-text"></span>
+        <div id="player-status-ui">
+            <div class="status-panel">
+                <p><span id="player-name" class="value">読み込み中...</span></p>
+                <p><span id="player-level" class="value">Lv.1</span></p>
+                <div class="hp-bar-container">
+                    <div id="player-hp-bar" class="hp-fill" style="width: 100%; background-color: var(--safe-color);"></div>
                 </div>
-                <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
+                <span id="player-hp-text" class="hp-text"></span>
             </div>
-        <?php endif; ?>
+            <?php if (true): ?>
+                <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
+            <?php endif; ?>
+        </div>
     </div>
 
     <script type="importmap">

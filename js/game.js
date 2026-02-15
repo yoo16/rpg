@@ -189,6 +189,33 @@ export class Game {
         this.camera.lookAt(lookAtTarget);
     }
 
+    // 探索中でもバトル中でも、このメソッドを呼べば画面上のHP表示がすべて同期される
+    updateAllStatusUI() {
+        const p = this.player;
+        if (!p) return;
+
+        const pPercent = p.hpPercent;
+
+        // ダンジョン画面とバトル画面、両方のIDをチェックして更新
+        const barIds = ['player-hp-bar', 'battle-player-hp-bar']; // HTMLで使っているIDを列挙
+        barIds.forEach(id => {
+            const bar = document.getElementById(id);
+            if (bar) {
+                bar.style.width = `${pPercent}%`;
+                // 残量に応じた色変更
+                bar.style.backgroundColor = pPercent < 20 ? 'var(--danger-color)' :
+                    pPercent < 50 ? 'var(--caution-color)' :
+                        'var(--safe-color)';
+            }
+        });
+
+        const textIds = ['player-hp-text', 'battle-player-hp-text'];
+        textIds.forEach(id => {
+            const txt = document.getElementById(id);
+            if (txt) txt.textContent = `${Math.floor(p.stats.hp)} / ${p.stats.maxHp}`;
+        });
+    }
+
     startGameLoop() {
         if (!this.isRunning) return;
         const delta = this.clock.getDelta();
