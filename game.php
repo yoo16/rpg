@@ -45,10 +45,12 @@
             </div>
         </div>
 
-        <div id="debug-ui">
-            <p><span class="label">名前:</span> <span id="player-name" class="value">読み込み中...</span></p>
-            <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
-        </div>
+        <?php if (true): ?>
+            <div id="debug-ui">
+                <p><span id="player-name" class="value">読み込み中...</span></p>
+                <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
+            </div>
+        <?php endif; ?>
     </div>
 
     <script type="importmap">

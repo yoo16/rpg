@@ -16,6 +16,12 @@ export class MapManager {
 
     init(mapData) {
         this.mapData = mapData;
+
+        // テクスチャ読み込み
+        const textureLoader = new THREE.TextureLoader();
+        this.wallTexture = textureLoader.load('assets/textures/stone_wall.jpg');
+        this.floorTexture = textureLoader.load('assets/textures/dungeon_floor.jpg');
+
         this.createMap();
     }
 
@@ -148,9 +154,15 @@ export class MapManager {
             for (let x = 0; x < width; x++) {
                 const worldX = x * TILE_SIZE;
                 const worldZ = z * TILE_SIZE;
-                if (tiles[z][x] === 1) this.createWall(worldX, worldZ);
-                else if (tiles[z][x] === 2) this.createWater(worldX, worldZ);
-                else this.createFloor(worldX, worldZ);
+                if (tiles[z][x] === 1) {
+                    this.createWall(worldX, worldZ);
+                } else if (tiles[z][x] === 2) {
+                    this.createWater(worldX, worldZ);
+                    this.createCeiling(worldX, worldZ);
+                } else {
+                    this.createFloor(worldX, worldZ);
+                    this.createCeiling(worldX, worldZ);
+                }
             }
         }
     }
@@ -167,16 +179,41 @@ export class MapManager {
     }
 
     createFloor(x, z) {
-        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE), new THREE.MeshLambertMaterial({ color: 0x228B22 }));
+        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+        const material = new THREE.MeshLambertMaterial({ map: this.floorTexture, color: 0x888888 });
+        const mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2;
         mesh.position.set(x, 0, z);
+        mesh.receiveShadow = true;
         this.group.add(mesh);
         this.mapMeshes.push(mesh);
     }
 
     createWall(x, z) {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(TILE_SIZE, 1.0, TILE_SIZE), new THREE.MeshLambertMaterial({ color: 0x8B4513 }));
-        mesh.position.set(x, 0.5, z);
+        // 壁のブロック高さ（個数）
+        const height = 4;
+        const geometry = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const material = new THREE.MeshLambertMaterial({ map: this.wallTexture, color: 0x888888 });
+
+        for (let i = 0; i < height; i++) {
+            const mesh = new THREE.Mesh(geometry, material);
+            // y座標: (i * TILE_SIZE) + (TILE_SIZE / 2)
+            // i=0 -> 0.5, i=1 -> 1.5, i=2 -> 2.5, i=3 -> 3.5
+            mesh.position.set(x, (i * TILE_SIZE) + (TILE_SIZE / 2), z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.group.add(mesh);
+            this.mapMeshes.push(mesh);
+        }
+    }
+
+    createCeiling(x, z) {
+        const wallHeight = 4.0;
+        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+        const material = new THREE.MeshLambertMaterial({ color: 0x222222, side: THREE.BackSide });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = Math.PI / 2;
+        mesh.position.set(x, wallHeight, z);
         this.group.add(mesh);
         this.mapMeshes.push(mesh);
     }

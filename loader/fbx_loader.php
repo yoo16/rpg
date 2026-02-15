@@ -83,7 +83,7 @@
         }
     </script>
 
-    <script type="module" src="../js/fbx_loader.js"></script>
+    <script type="module" src="../js/loader/fbx_loader.js"></script>
 </body>
 
 </html>

@@ -72,7 +72,6 @@ body {
 
 /* Main UI */
 #debug-ui {
-    display: none;
     position: absolute;
     top: 20px;
     left: 20px;

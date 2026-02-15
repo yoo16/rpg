@@ -55,7 +55,7 @@
             }
         }
     </script>
-    <script type="module" src="../js/gltf_loader.js"></script>
+    <script type="module" src="../js/loader/gltf_loader.js"></script>
 </body>
 
 </html>

@@ -7,27 +7,22 @@ import { STATE, BATTLE_PHASE } from './constants.js';
 
 export class Game {
     constructor() {
-        // Three.js Components
         this.scene = null;
         this.camera = null;
         this.renderer = null;
         this.clock = new THREE.Clock();
 
-        // Scene Groups
         this.worldGroup = null;
         this.battleGroup = null;
 
-        // Managers
         this.mapManager = new MapManager();
         this.player = new Player(this.mapManager, () => this.checkEncounter());
-        this.battleSystem = null; // Initialized after loading assets
+        this.battleSystem = null;
 
-        // Game State
         this.currentState = STATE.MAP;
         this.enemyMasterData = null;
         this.keys = {};
 
-        // Dialog State
         this.dialogActive = false;
         this.currentDialog = null;
         this.dialogIndex = 0;
@@ -35,318 +30,255 @@ export class Game {
         this.lastDialogTime = 0;
 
         this.isRunning = true;
-        this.fps = 60;
 
-        // Camera Settings
-        this.cameraOffset = { x: 0, y: 4, z: 6 };
-        this.mapCameraTarget = { x: 0, y: 0, z: 0 };
+        // --- Camera Settings (三人称視点) ---
+        this.cameraOffset = { x: 0, y: 2.0, z: 4.5 };
+        this.cameraSmoothness = 0.15;
 
         this.init();
     }
 
     async init() {
-        console.log('%c🎮 Web 3D RPG Refactored Initializing...', 'color: #0f0; font-size: 16px; font-weight: bold;');
-
         try {
             this.showLoading();
             await GameApi.initConfig();
             this.setupThreeJS();
 
-            const [playerResponse, mapResponse, enemyResponse] = await Promise.all([
+            const [pRes, mRes, eRes] = await Promise.all([
                 GameApi.getPlayerInitData(),
                 GameApi.getMapData(1),
                 GameApi.getEnemyData()
             ]);
 
-            this.enemyMasterData = enemyResponse.data.enemies;
-            this.mapManager.init(mapResponse.data.map);
+            this.enemyMasterData = eRes.data.enemies;
+            this.mapManager.init(mRes.data.map);
             this.worldGroup.add(this.mapManager.group);
 
-            await this.player.init(playerResponse.data.player, mapResponse.data.map);
+            await this.player.init(pRes.data.player, mRes.data.map);
             this.worldGroup.add(this.player.mesh);
+
+            const playerLight = new THREE.PointLight(0xffaa00, 1.5, 10);
+            playerLight.position.set(0, 2, 0);
+            this.player.mesh.add(playerLight);
 
             await this.mapManager.createNPCs();
 
-            // Initialize BattleSystem
             this.battleSystem = new BattleSystem(
-                this.player,
-                this.camera,
-                this.battleGroup,
-                this.enemyMasterData,
-                (isVictory) => this.onBattleEnd(isVictory)
+                this.player, this.camera, this.battleGroup, this.enemyMasterData,
+                (win) => this.onBattleEnd(win)
             );
 
             this.setupInput();
             this.hideLoading();
             this.startGameLoop();
-
-            console.log('%c✅ Initialization Complete!', 'color: #0f0; font-weight: bold;');
-        } catch (error) {
-            console.error('❌ Init Error:', error);
-            this.showLoadingError('ゲームの初期化に失敗しました。');
-        }
+        } catch (e) { console.error(e); }
     }
 
     setupThreeJS() {
         const container = document.getElementById('canvas-container');
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x000000);
 
-        this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-        this.camera.position.set(0, 10, 10);
-        this.camera.lookAt(0, 0, 0);
+        // --- 修正箇所: FOVを75度に広げる ---
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        this.renderer.setSize(width, height);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(this.renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        this.scene.add(ambientLight);
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 7);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        this.scene.add(directionalLight);
-
         this.worldGroup = new THREE.Group();
         this.battleGroup = new THREE.Group();
-        this.scene.add(this.worldGroup);
-        this.scene.add(this.battleGroup);
-
-        this.worldGroup.visible = true;
-        this.battleGroup.visible = false;
+        this.scene.add(this.worldGroup, this.battleGroup);
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+        dl.position.set(5, 10, 7);
+        this.scene.add(dl);
 
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
+    // --- (setupInput, handleInput, update 等は変更なし) ---
     setupInput() {
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-
-            if (e.key === ' ' || e.key === 'Enter') {
+            if ((e.key === ' ' || e.key === 'Enter')) {
                 e.preventDefault();
-                if (this.dialogActive) {
-                    this.advanceDialog();
-                } else if (this.currentState === STATE.MAP) {
-                    const now = performance.now();
-                    if (now - this.lastDialogTime < 500) return;
-                    this.checkInteraction();
-                }
+                if (this.dialogActive) this.advanceDialog();
+                else if (this.currentState === STATE.MAP) this.checkInteraction();
             }
         });
-
-        window.addEventListener('keyup', (e) => {
-            this.keys[e.key] = false;
-        });
+        window.addEventListener('keyup', (e) => this.keys[e.key] = false);
     }
 
+    handleInput() {
+        if (this.player.isMoving || this.player.isRotating || this.dialogActive || this.currentState !== STATE.MAP) return;
+        if (this.keys['ArrowUp'] || this.keys['w']) {
+            this.player.moveForward();
+        } else if (this.keys['ArrowDown'] || this.keys['s']) {
+            this.player.rotateBy(Math.PI);
+            this.keys['ArrowDown'] = false; this.keys['s'] = false;
+        } else if (this.keys['ArrowLeft'] || this.keys['a']) {
+            this.player.rotateBy(Math.PI / 2);
+            this.keys['ArrowLeft'] = false; this.keys['a'] = false;
+        } else if (this.keys['ArrowRight'] || this.keys['d']) {
+            this.player.rotateBy(-Math.PI / 2);
+            this.keys['ArrowRight'] = false; this.keys['d'] = false;
+        }
+    }
+
+    update(delta) {
+        if (this.currentState === STATE.MAP) {
+            this.player.updateMovement(delta);
+            this.handleInput();
+            if (!this.dialogActive) {
+                this.checkNPCProximity();
+            }
+            this.player.updateAnimation(delta);
+            this.mapManager.update(delta);
+            this.updateCamera();
+        } else if (this.currentState === STATE.BATTLE && this.battleSystem) {
+            this.battleSystem.update(delta);
+        }
+        this.updateUI();
+    }
+
+    updateCamera() {
+        if (!this.player.mesh || this.currentState !== STATE.MAP) return;
+
+        // 1. プレイヤーの頭上付近（注視点）を定義
+        const lookTarget = this.player.mesh.position.clone();
+        lookTarget.y += 1.5; // 注視点を少し高くする（頭の位置）
+
+        // 2. 本来あるべき理想のカメラ位置を計算
+        const playerRotation = this.player.mesh.quaternion.clone();
+        const offset = new THREE.Vector3(this.cameraOffset.x, this.cameraOffset.y, this.cameraOffset.z);
+        offset.applyQuaternion(playerRotation);
+        const idealPos = this.player.mesh.position.clone().add(offset);
+
+        // 3. Raycasterを使って壁コリジョン判定
+        const rayDirection = idealPos.clone().sub(lookTarget).normalize();
+        const rayDistance = idealPos.distanceTo(lookTarget);
+        const raycaster = new THREE.Raycaster(lookTarget, rayDirection, 0, rayDistance);
+
+        // mapManager内の壁・天井メッシュとの衝突をチェック
+        // mapMeshes に壁と天井の両方が入っている必要があります
+        const intersects = raycaster.intersectObjects(this.mapManager.mapMeshes);
+
+        let finalCameraPos = idealPos;
+
+        if (intersects.length > 0) {
+            // 壁に当たった場合、壁の表面から少し手前(0.3)の位置にカメラを置く
+            const hitDistance = intersects[0].distance - 0.3;
+            finalCameraPos = lookTarget.clone().add(rayDirection.multiplyScalar(hitDistance));
+        }
+
+        // 4. 算出した位置に滑らかに追従
+        this.camera.position.lerp(finalCameraPos, this.cameraSmoothness);
+
+        // 5. プレイヤーの頭のあたりを注視
+        this.camera.lookAt(lookTarget);
+    }
     checkEncounter() {
         if (this.currentState !== STATE.MAP) return;
-        this.battleSystem.startBattle(this.mapManager.mapData.possible_enemies);
-        this.currentState = STATE.BATTLE;
-        this.worldGroup.visible = false;
-        this.battleGroup.visible = true;
-    }
+        // JSONから取得したエンカウント率（例: 0.05 = 5%）
+        const rate = this.mapManager.mapData.encounter_rate || 0.05;
+        console.log(rate)
 
+        // 0.0〜1.0の乱数を生成し、rateより小さければ遭遇
+        if (Math.random() < rate) {
+            console.log('%c⚔️ ENCOUNTER!', 'color: red; font-weight: bold;');
+            this.startBattle();
+        }
+    }
     onBattleEnd(isVictory) {
         this.currentState = STATE.MAP;
         this.worldGroup.visible = true;
         this.battleGroup.visible = false;
-
-        // Don't reset camera immediately needed? 
-        // updateCamera will smooth it back anyway
     }
-
     checkInteraction() {
         if (this.dialogActive) return;
-
         const { x, z } = this.player.getFacingPosition();
-        console.log(`🔍 目の前をチェック: Grid(${x}, ${z})`);
-
-        // MapManagerからNPCデータを取得
         const npcData = this.mapManager.getNPCAt(x, z);
-
-        if (npcData) {
-            console.log('✅ NPC発見:', npcData.name);
-            this.startNPCDialog(npcData);
-            return; // NPCがいたらイベントはチェックしない
-        }
-
-        // イベント（回復など）のチェック
+        if (npcData) { this.startNPCDialog(npcData); return; }
         const event = this.mapManager.getEventAt(x, z);
-        if (event) {
-            console.log('✅ イベント発見:', event.type);
-            switch (event.type) {
-                case 'heal':
-                    this.executeHeal(event);
-                    this.showDialog(event.message);
-                    break;
-            }
+        if (event && event.type === 'heal') {
+            this.executeHeal(event);
+            this.showDialog(event.message);
         }
     }
-
     executeHeal(event) {
         this.player.stats.hp = this.player.stats.maxHp;
-        console.log(`✅ HP Restored: ${this.player.stats.hp}`);
         this.updateUI();
     }
-
     startNPCDialog(npc) {
         this.currentDialog = { name: npc.name, dialogues: npc.dialogues || [] };
         this.currentNPCId = npc.id;
         this.dialogIndex = 0;
         this.showDialog();
     }
-
     showDialog(message = null) {
         const dialogUI = document.getElementById('dialog-ui');
         const dialogText = document.getElementById('dialog-text');
         const dialogTitle = document.getElementById('dialog-title');
-
         if (!dialogUI) return;
-
         if (message) {
             dialogText.textContent = message;
-            dialogUI.style.display = 'block';
+            dialogTitle.textContent = "【案内】";
         } else if (this.currentDialog) {
-            if (this.dialogIndex < this.currentDialog.dialogues.length) {
-                dialogTitle.textContent = `【${this.currentDialog.name}】`;
-                dialogText.textContent = this.currentDialog.dialogues[this.dialogIndex];
-                dialogUI.style.display = 'block';
-            } else {
-                this.hideDialog();
-            }
+            dialogTitle.textContent = `【${this.currentDialog.name}】`;
+            dialogText.textContent = this.currentDialog.dialogues[this.dialogIndex];
         }
+        dialogUI.style.display = 'block';
         this.dialogActive = true;
     }
-
     advanceDialog() {
-        if (!this.dialogActive || !this.currentDialog) {
-            this.hideDialog();
-            return;
-        }
-
         this.dialogIndex++;
-        if (this.dialogIndex >= this.currentDialog.dialogues.length) {
+        if (!this.currentDialog || this.dialogIndex >= this.currentDialog.dialogues.length) {
             this.hideDialog();
         } else {
             this.showDialog();
         }
     }
-
     hideDialog() {
         const dialogUI = document.getElementById('dialog-ui');
         if (dialogUI) dialogUI.style.display = 'none';
-
         this.dialogActive = false;
         this.currentDialog = null;
         this.dialogIndex = 0;
         this.lastDialogTime = performance.now();
     }
-
-    // game.js 内
     checkNPCProximity() {
-        if (this.currentState !== STATE.MAP || this.dialogActive) return;
-
         const px = this.player.gridX;
         const pz = this.player.gridZ;
-        console.log(px, pz);
         const result = this.mapManager.checkNPCProximity(px, pz, this.currentNPCId);
-
-        if (result.npc) {
-            // 新しいNPCを見つけたら会話を開始
-            console.log(`💬 ${result.npc.name} が話しかけてきた！`);
-            this.startNPCDialog(result.npc);
-        } else if (!result.adjacent) {
-            // 誰の隣にもいなくなったらフラグをリセット
-            // これにより、再度近づいた時にまた会話ができるようになる
-            this.currentNPCId = null;
-        }
+        if (result.npc) { this.startNPCDialog(result.npc); }
+        else if (!result.adjacent) { this.currentNPCId = null; }
     }
-
     startGameLoop = () => {
         if (!this.isRunning) return;
         const delta = this.clock.getDelta();
-
         this.update(delta);
         this.render();
         requestAnimationFrame(this.startGameLoop);
     };
-
-    update(delta) {
-        if (this.currentState === STATE.MAP) {
-            if (!this.dialogActive) {
-                this.player.update(delta, this.keys);
-            } else {
-                this.player.update(delta, {});
-            }
-            this.mapManager.update(delta);
-            this.updateCamera();
-        } else if (this.currentState === STATE.BATTLE) {
-            if (this.battleSystem) this.battleSystem.update(delta);
-        }
-
-        this.updateUI();
-    }
-
-    updateCamera() {
-        if (this.currentState !== STATE.MAP || !this.player.mesh) return;
-
-        const targetX = this.player.mesh.position.x;
-        const targetZ = this.player.mesh.position.z;
-
-        const lerpFactor = 0.1;
-        this.mapCameraTarget.x += (targetX - this.mapCameraTarget.x) * lerpFactor;
-        this.mapCameraTarget.z += (targetZ - this.mapCameraTarget.z) * lerpFactor;
-
-        this.camera.position.x = this.mapCameraTarget.x + this.cameraOffset.x;
-        this.camera.position.y = this.mapCameraTarget.y + this.cameraOffset.y;
-        this.camera.position.z = this.mapCameraTarget.z + this.cameraOffset.z;
-
-        this.camera.lookAt(this.mapCameraTarget.x, this.mapCameraTarget.y + 1.0, this.mapCameraTarget.z);
-    }
-
     updateUI() {
-        // FPS update could be here
         if (this.player.mesh) {
-            // const nameElem = document.getElementById('player-name');
-            // if (nameElem) nameElem.textContent = this.player.name || '勇者';
-
+            const nameElem = document.getElementById('player-name');
+            if (nameElem) nameElem.textContent = this.player.name;
             const posX = document.getElementById('pos-x');
             const posZ = document.getElementById('pos-z');
-            if (posX) posX.textContent = this.player.gridX.toFixed(1);
-            if (posZ) posZ.textContent = this.player.gridZ.toFixed(1);
+            if (posX) posX.textContent = this.player.gridX.toFixed(0);
+            if (posZ) posZ.textContent = this.player.gridZ.toFixed(0);
         }
     }
-
-    render() {
-        this.renderer.render(this.scene, this.camera);
-    }
-
+    render() { this.renderer.render(this.scene, this.camera); }
     onWindowResize() {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        this.camera.aspect = width / height;
+        this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(width, height);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
-
-    showLoading() {
-        const el = document.getElementById('loading-ui');
-        if (el) el.style.display = 'flex';
-    }
-    hideLoading() {
-        const el = document.getElementById('loading-ui');
-        if (el) el.style.display = 'none';
-    }
+    showLoading() { document.getElementById('loading-ui').style.display = 'flex'; }
+    hideLoading() { document.getElementById('loading-ui').style.display = 'none'; }
     showLoadingError(msg) {
         const el = document.getElementById('loading-ui');
         if (el) el.innerHTML = `<div style="color:red"><p>エラー</p><p>${msg}</p></div>`;

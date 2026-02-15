@@ -56,7 +56,7 @@
             }
         }
     </script>
-    <script type="module" src="../js/glb_texture_loader.js"></script>
+    <script type="module" src="../js/loader/glb_texture_loader.js"></script>
 </body>
 
 </html>
