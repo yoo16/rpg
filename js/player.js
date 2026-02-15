@@ -28,22 +28,25 @@ export class Player {
     }
 
     async init(playerData, mapData) {
+        // 1. 座標とステータスの初期化
         this.gridX = mapData.start_x !== undefined ? mapData.start_x : 1;
         this.gridZ = mapData.start_z !== undefined ? mapData.start_z : 1;
-
         this.stats = JSON.parse(JSON.stringify(playerData.stats));
         this.name = playerData.name;
 
-        const assetInfo = mapData.player_assets;
+        // 2. アセット情報の取得
+        const assetInfo = playerData.assets;
         const modelUrl = assetInfo?.model_url;
         const walkUrl = assetInfo?.anim_walk_url;
-        const scale = assetInfo?.scale || 0.5;
+        const scale = assetInfo?.scale || 0.01;
 
+        // 3. モデルの読み込み試行
         let [mainData, walkData] = await Promise.all([
             modelUrl ? this.loadModel(modelUrl) : Promise.resolve(null),
             walkUrl ? this.loadModel(walkUrl) : Promise.resolve(null)
         ]);
 
+        // 4. モデルがあればセットアップ、なければプレースホルダーを作成
         if (mainData) {
             this.idleModel = mainData.scene || mainData;
             this.setupModel(this.idleModel, scale);
@@ -51,7 +54,9 @@ export class Player {
             this.idleMixer = new THREE.AnimationMixer(this.idleModel);
             const idleClip = mainData.animations.find(a => a.name.toLowerCase().includes('idle')) || mainData.animations[0];
             if (idleClip) this.idleMixer.clipAction(idleClip).play();
-            this.idleModel.visible = true; // 初期状態
+        } else {
+            // モデルがない場合のフォールバック
+            this.createPlaceholder();
         }
 
         if (walkData) {
@@ -60,27 +65,37 @@ export class Player {
             this.mesh.add(this.walkModel);
             this.walkMixer = new THREE.AnimationMixer(this.walkModel);
             const walkClip = walkData.animations[0];
-            if (walkClip) {
-                const action = this.walkMixer.clipAction(walkClip);
-                action.timeScale = 1.4;
-                action.play();
-            }
-            this.walkModel.visible = false; // 初期状態は隠す
+            if (walkClip) this.walkMixer.clipAction(walkClip).setDuration(1).play();
+            this.walkModel.visible = false;
         }
 
         this.updatePlayerPosition();
         this.mesh.rotation.y = this.rotationTarget;
     }
 
+    createPlaceholder() {
+        console.log("👻 Player placeholder created (Hidden)");
+        const geometry = new THREE.CapsuleGeometry(0.4, 1, 4, 8);
+        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const placeholderMesh = new THREE.Mesh(geometry, material);
+
+        // 非表示に設定
+        placeholderMesh.visible = false;
+
+        placeholderMesh.position.y = 0.9;
+        this.mesh.add(placeholderMesh);
+    }
+
+    // --- 以下、既存のロジックを継承 ---
+
     setupModel(model, scale) {
         model.scale.set(scale, scale, scale);
-        // モデルの向きを180度回転させて、カメラの向き（北向きデフォルト）と合わせる
-        model.rotation.y = Math.PI;
+        model.rotation.y = Math.PI; // 初期向きをカメラに合わせる
         model.traverse(n => {
             if (n.isMesh) {
                 n.castShadow = true;
                 n.receiveShadow = true;
-                n.frustumCulled = false; // ちらつき防止
+                n.frustumCulled = false;
                 if (n.material) n.material = n.material.clone();
             }
         });
@@ -90,26 +105,22 @@ export class Player {
         const ext = url.split('.').pop().toLowerCase();
         return new Promise((resolve) => {
             const loader = (ext === 'fbx') ? this.fbxLoader : this.gltfLoader;
-            loader.load(url, (data) => resolve(data), undefined, () => resolve(null));
+            loader.load(url, (data) => resolve(data), undefined, (err) => {
+                console.warn(`Load failed for ${url}:`, err);
+                resolve(null);
+            });
         });
     }
 
-    // Game.jsから分離して呼び出される想定
     updateAnimation(delta) {
-        // アニメーション状態の切り替え
-        if (this.isMoving) {
-            this.setAnimationState('Walk');
-        } else {
-            this.setAnimationState('Idle');
-        }
+        if (!this.idleMixer && !this.walkMixer) return; // プレースホルダー時はスキップ
 
-        // ミキサー更新とボーン固定
-        // idle
+        this.setAnimationState(this.isMoving ? 'Walk' : 'Idle');
+
         if (this.idleMixer && this.idleModel?.visible) {
             this.idleMixer.update(delta);
             this.resetRootPosition(this.idleModel);
         }
-        // walk
         if (this.walkMixer && this.walkModel?.visible) {
             this.walkMixer.update(delta);
             this.resetRootPosition(this.walkModel);
@@ -130,7 +141,6 @@ export class Player {
         this.isRotating = true;
     }
 
-    // Player.js の moveForward メソッドを修正
     moveForward() {
         if (this.isMoving || this.isRotating) return;
 
@@ -140,22 +150,13 @@ export class Player {
         const targetX = this.gridX + dx;
         const targetZ = this.gridZ + dz;
 
-        // 1. マップの範囲外チェック
         const { width, height, tiles } = this.mapManager.mapData;
         if (targetX < 0 || targetX >= width || targetZ < 0 || targetZ >= height) return;
-
-        // 2. タイル属性チェック（壁:1, 水:2）
         if (tiles[targetZ][targetX] === 1 || tiles[targetZ][targetX] === 2) return;
 
-        // 3. NPCとの衝突チェック (追加)
-        // MapManagerに getNPCAt が実装されている前提
         const npc = this.mapManager.getNPCAt(targetX, targetZ);
-        if (npc) {
-            console.log("🚫 NPCがいるため進めません:", npc.name);
-            return;
-        }
+        if (npc) return;
 
-        // すべてのチェックを通過したら移動開始
         this.gridX = targetX;
         this.gridZ = targetZ;
         this.isMoving = true;
@@ -164,7 +165,6 @@ export class Player {
 
     updateMovement(deltaTime) {
         this.smoothRotate(deltaTime);
-
         if (!this.isMoving || !this.targetPosition) return;
 
         const speed = 4.0;
@@ -176,10 +176,7 @@ export class Player {
             this.mesh.position.copy(targetPos);
             this.isMoving = false;
             this.targetPosition = null;
-
-            // --- 移動完了時のイベントチェックを追加 ---
             this.checkTileEvent();
-
             if (this.onEncounter) this.onEncounter();
         } else {
             const moveDir = targetPos.clone().sub(currentPos).normalize();
@@ -188,22 +185,13 @@ export class Player {
     }
 
     checkTileEvent() {
-        // 現在の座標にあるイベントを取得
         const event = this.mapManager.getEventAt(this.gridX, this.gridZ);
-
         if (event && event.type === 'heal') {
-            console.log(`✨ イベント発生: ${event.message}`);
-
-            // HP全回復処理
             if (this.stats) {
                 this.stats.hp = this.stats.maxHp;
-
-                // UI更新などのためにカスタムイベントを飛ばすか、
-                // Game.js 側へ通知する仕組みがあると便利です
-                const healEvent = new CustomEvent('player-healed', {
+                window.dispatchEvent(new CustomEvent('player-healed', {
                     detail: { hp: this.stats.hp, message: event.message }
-                });
-                window.dispatchEvent(healEvent);
+                }));
             }
         }
     }
@@ -212,10 +200,8 @@ export class Player {
         const currentRotation = this.mesh.rotation.y;
         let targetRotation = this.rotationTarget;
         const PI2 = Math.PI * 2;
-
         while (targetRotation - currentRotation > Math.PI) targetRotation -= PI2;
         while (targetRotation - currentRotation < -Math.PI) targetRotation += PI2;
-
         const diff = targetRotation - currentRotation;
         if (Math.abs(diff) < 0.01) {
             this.mesh.rotation.y = targetRotation;
@@ -228,11 +214,7 @@ export class Player {
     resetRootPosition(model) {
         if (!model) return;
         model.traverse(node => {
-            if (node.isBone && (
-                node.name.toLowerCase().includes('hips') ||
-                node.name.toLowerCase().includes('root') ||
-                node.name.toLowerCase().includes('pelvis')
-            )) {
+            if (node.isBone && (node.name.toLowerCase().includes('hips') || node.name.toLowerCase().includes('root'))) {
                 node.position.x = 0;
                 node.position.z = 0;
             }
@@ -253,5 +235,4 @@ export class Player {
         if (!this.stats || this.stats.maxHp <= 0) return 0;
         return Math.min(100, Math.max(0, (this.stats.hp / this.stats.maxHp) * 100));
     }
-
 }

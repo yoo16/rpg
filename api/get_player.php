@@ -7,8 +7,11 @@ $playerData = [
         "player" => [
             "id" => "p001",
             "name" => "勇者",
-            "color" => "#ff0000",
-            "size" => 1.0,
+            "assets" => [
+                "model_url" => "assets/fbx/character2_idle.fbx",
+                "anim_walk_url" => "assets/fbx/character2_walk.fbx",
+                "scale" => 0.01
+            ],
             "stats" => [
                 "hp" => 100,
                 "maxHp" => 100,

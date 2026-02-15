@@ -80,21 +80,17 @@ body {
     position: absolute;
     top: 20px;
     left: 20px;
-    color: var(--text-color);
-    background: var(--message-bg-color);
     padding: 15px;
-    border: 2px solid var(--main-color);
+    background: var(--dialog-bg-color);
+    color: var(--dialog-text-color);
+    border: 2px solid var(--dialog-border-color);
     font-family: var(--font-mono);
     z-index: 50;
     pointer-events: none;
 }
 
-.label {
-    font-weight: bold;
-}
-
 .value {
-    color: #aaa;
+    color: #ffffff;
 }
 
 /* Battle UI */
@@ -182,8 +178,9 @@ body {
 .hp-bar-container {
     width: 200px;
     height: 20px;
-    background-color: #333;
-    border: 2px solid #555;
+    background-color: rgba(28, 238, 0, 0.6);
+    border: 2px solid rgba(28, 238, 0, 0.5);
+    border-radius: 5px;
     overflow: hidden;
     position: relative;
 }

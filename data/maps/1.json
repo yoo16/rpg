@@ -453,7 +453,8 @@
     "possible_enemies": [
         "e001",
         "e002",
-        "e003"
+        "e003",
+        "e004"
     ],
     "player_assets": {
         "model_url": "assets\/fbx\/character1_idle.fbx",
