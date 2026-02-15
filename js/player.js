@@ -28,6 +28,9 @@ export class Player {
     }
 
     async init(playerData, mapData) {
+        this.gridX = mapData.start_x !== undefined ? mapData.start_x : 1;
+        this.gridZ = mapData.start_z !== undefined ? mapData.start_z : 1;
+
         this.stats = JSON.parse(JSON.stringify(playerData.stats));
         this.name = playerData.name;
 
@@ -127,6 +130,7 @@ export class Player {
         this.isRotating = true;
     }
 
+    // Player.js の moveForward メソッドを修正
     moveForward() {
         if (this.isMoving || this.isRotating) return;
 
@@ -136,10 +140,22 @@ export class Player {
         const targetX = this.gridX + dx;
         const targetZ = this.gridZ + dz;
 
+        // 1. マップの範囲外チェック
         const { width, height, tiles } = this.mapManager.mapData;
         if (targetX < 0 || targetX >= width || targetZ < 0 || targetZ >= height) return;
+
+        // 2. タイル属性チェック（壁:1, 水:2）
         if (tiles[targetZ][targetX] === 1 || tiles[targetZ][targetX] === 2) return;
 
+        // 3. NPCとの衝突チェック (追加)
+        // MapManagerに getNPCAt が実装されている前提
+        const npc = this.mapManager.getNPCAt(targetX, targetZ);
+        if (npc) {
+            console.log("🚫 NPCがいるため進めません:", npc.name);
+            return;
+        }
+
+        // すべてのチェックを通過したら移動開始
         this.gridX = targetX;
         this.gridZ = targetZ;
         this.isMoving = true;
@@ -160,10 +176,35 @@ export class Player {
             this.mesh.position.copy(targetPos);
             this.isMoving = false;
             this.targetPosition = null;
+
+            // --- 移動完了時のイベントチェックを追加 ---
+            this.checkTileEvent();
+
             if (this.onEncounter) this.onEncounter();
         } else {
             const moveDir = targetPos.clone().sub(currentPos).normalize();
             currentPos.add(moveDir.multiplyScalar(Math.min(speed * deltaTime, distance)));
+        }
+    }
+
+    checkTileEvent() {
+        // 現在の座標にあるイベントを取得
+        const event = this.mapManager.getEventAt(this.gridX, this.gridZ);
+
+        if (event && event.type === 'heal') {
+            console.log(`✨ イベント発生: ${event.message}`);
+
+            // HP全回復処理
+            if (this.stats) {
+                this.stats.hp = this.stats.maxHp;
+
+                // UI更新などのためにカスタムイベントを飛ばすか、
+                // Game.js 側へ通知する仕組みがあると便利です
+                const healEvent = new CustomEvent('player-healed', {
+                    detail: { hp: this.stats.hp, message: event.message }
+                });
+                window.dispatchEvent(healEvent);
+            }
         }
     }
 

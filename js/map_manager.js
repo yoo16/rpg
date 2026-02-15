@@ -117,12 +117,31 @@ export class MapManager {
         return null;
     }
 
+    lookAtPlayer(npcId, playerGridX, playerGridZ) {
+        const npcGroup = this.npcMeshes.find(g => g.userData.id === npcId);
+        if (!npcGroup) return;
+
+        const data = npcGroup.userData;
+        // プレイヤーとNPCの相対位置から角度を計算
+        const dx = playerGridX - data.x;
+        const dz = playerGridZ - data.z;
+
+        // Math.atan2(x, z) で方向を求める
+        const angle = Math.atan2(dx, dz);
+
+        // NPCのメッシュ（Group）を回転させる
+        npcGroup.rotation.y = angle;
+    }
+
     // イベント判定（エラー回避のため追加）
     getEventAt(x, z) {
+        console.log('getEventAt', x, z);
         if (!this.mapData || !this.mapData.events) return null;
-        const tx = Math.round(x);
-        const tz = Math.round(z);
-        return this.mapData.events.find(ev => Math.round(ev.x) === tx && Math.round(ev.z) === tz);
+
+        // 座標が一致するイベントを探す
+        return this.mapData.events.find(ev =>
+            Math.round(ev.x) === x && Math.round(ev.z) === z
+        );
     }
 
     checkNPCProximity(playerX, playerZ, currentNPCId) {

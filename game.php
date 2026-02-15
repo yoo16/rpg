@@ -23,21 +23,13 @@
             <div class="dialog-box">
                 <div id="dialog-title" class="dialog-title"></div>
                 <div id="dialog-text" class="dialog-text"></div>
-                <div class="dialog-footer">▼ 次へ (Enter/Space)</div>
+                <div class="dialog-footer">▼ Next (Enter/Space)</div>
             </div>
         </div>
 
         <div id="battle-ui">
-            <div id="battle-message" class="message-box"></div>
-
             <div class="battle-controls">
-                <div class="status-panel">
-                    <span>勇者 (Lv.1)</span>
-                    <div class="hp-bar-container">
-                        <div id="player-hp-bar" class="hp-fill" style="width: 100%; background-color: var(--safe-color);"></div>
-                    </div>
-                    <span id="player-hp-text" class="hp-text"></span>
-                </div>
+                <div id="battle-message" class="message-box"></div>
                 <div class="command-box">
                     <button id="btn-attack" class="battle-button">こうげき</button>
                     <button id="btn-run" class="battle-button">にげる</button>
@@ -47,7 +39,14 @@
 
         <?php if (true): ?>
             <div id="debug-ui">
-                <p><span id="player-name" class="value">読み込み中...</span></p>
+                <div class="status-panel">
+                    <p><span id="player-name" class="value">読み込み中...</span></p>
+                    <p><span id="player-level" class="value">Lv.1</span></p>
+                    <div class="hp-bar-container">
+                        <div id="player-hp-bar" class="hp-fill" style="width: 100%; background-color: var(--safe-color);"></div>
+                    </div>
+                    <span id="player-hp-text" class="hp-text"></span>
+                </div>
                 <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
             </div>
         <?php endif; ?>
