@@ -179,7 +179,7 @@ export class BattleSystem {
         const damage = Math.max(this.player.stats.attack - this.enemy.stats.defense, 1);
         this.enemy.stats.hp -= damage;
 
-        this.addBattleLog(`勇者の攻撃！ ${this.enemy.name} に ${damage} のダメージ！`);
+        this.addBattleLog(`${this.player.name} が ${this.enemy.name} に ${damage} のダメージを与えた！`);
         this.flashMesh(this.enemy.idleMesh, '#ff0000');
         this.shakeCamera();
         this.updateBattleUI();
@@ -187,7 +187,7 @@ export class BattleSystem {
         if (this.enemy.stats.hp <= 0) {
             this.phase = BATTLE_PHASE.VICTORY;
             setTimeout(() => {
-                this.addBattleLog('🎉 勝利！');
+                this.addBattleLog('Victory!');
                 setTimeout(() => this.endBattle(true), 1500);
             }, 1000);
         } else {
@@ -200,9 +200,8 @@ export class BattleSystem {
     shakeCamera() {
         if (!this.camera) return;
 
-        // 現在のカメラ位置を保存（揺れが終わった後に戻る場所）
         const originalPos = new THREE.Vector3().copy(this.camera.position);
-        const duration = 500; // 揺れる時間（ミリ秒）
+        const duration = 500;
         const start = Date.now();
 
         const animateShake = () => {
@@ -282,7 +281,6 @@ export class BattleSystem {
         if (this.onBattleEnd) this.onBattleEnd(isVictory);
     }
 
-    // BattleSystem.js
     updateBattleUI() {
         if (!this.enemy || !this.player) return;
 

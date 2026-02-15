@@ -26,9 +26,23 @@ async function loadMap() {
 }
 
 function setupEvents() {
-    document.body.onmousedown = () => state.isMouseDown = true;
+    // 既存のイベント
+    document.body.onmousedown = (e) => {
+        if (e.target.closest('#grid-canvas')) state.isMouseDown = true;
+    };
     document.body.onmouseup = () => state.isMouseDown = false;
-    document.oncontextmenu = (e) => e.preventDefault(); // 右クリックメニュー禁止
+    document.oncontextmenu = (e) => e.preventDefault();
+
+    const dirSelect = document.getElementById('map-start-dir');
+    if (dirSelect) {
+        dirSelect.addEventListener('change', (e) => {
+            if (mapData) {
+                mapData.start_dir = parseFloat(e.target.value);
+                console.log("Updated start_dir:", mapData.start_dir);
+                renderGrid(); // 🚩の向きを更新
+            }
+        });
+    }
 }
 
 // --- グリッド描画 ---
@@ -248,7 +262,6 @@ function updateUI() {
     if (entPal) entPal.classList.toggle('hidden', state.mode !== 'entity');
 
     document.querySelectorAll('.brush-btn, #mode-tile, #mode-entity').forEach(el => el.classList.remove('active-tool', 'active-mode'));
-
     const activeModeBtn = document.getElementById(`mode-${state.mode}`);
     if (activeModeBtn) activeModeBtn.classList.add('active-mode');
 

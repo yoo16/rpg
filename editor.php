@@ -43,9 +43,21 @@
         <section id="palette-entity" class="palette-section hidden">
             <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Entities / System</h2>
             <div class="grid grid-cols-1 gap-2">
-                <button onclick="setEntity('player')" id="btn-ent-player" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
-                    🚩 Player Start
-                </button>
+                <div class="space-y-1 mb-2">
+                    <button onclick="setEntity('player')" id="btn-ent-player" class="brush-btn flex items-center gap-3 p-3 rounded-t-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
+                        🚩 Player Start
+                    </button>
+                    <div class="flex items-center gap-2 p-2 bg-slate-900/50 rounded-b-lg border-t border-slate-700">
+                        <label class="text-[10px] text-slate-500 uppercase">Start Dir:</label>
+                        <select id="map-start-dir" class="flex-1 bg-slate-800 border border-slate-700 rounded p-1 text-xs text-slate-300 outline-none focus:border-blue-500">
+                            <option value="0">South (Front)</option>
+                            <option value="1.57">West (Right)</option>
+                            <option value="3.14">North (Back)</option>
+                            <option value="-1.57">East (Left)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <button onclick="setEntity('npc')" id="btn-ent-npc" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
                     👤 NPC
                 </button>
@@ -54,7 +66,6 @@
                 </button>
             </div>
         </section>
-
         <div class="mt-auto pt-6 border-t border-slate-700">
             <button onclick="saveMap()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition">
                 💾 Save JSON
@@ -81,9 +92,9 @@
             <div>
                 <label class="text-xs text-slate-400">Model URL</label>
                 <select id="prop-model" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
-                    <option value="assets/fbx/character4_idle.fbx">Villager (Male)</option>
-                    <option value="assets/fbx/character3_idle.fbx">Guard</option>
-                    <option value="assets/fbx/character2_idle.fbx">Witch</option>
+                    <option value="assets/fbx/character3_idle.fbx">character3</option>
+                    <option value="assets/fbx/character4_idle.fbx">character4</option>
+                    <option value="assets/fbx/character5_idle.fbx">character5</option>
                 </select>
             </div>
             <div>

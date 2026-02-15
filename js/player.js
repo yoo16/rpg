@@ -33,6 +33,7 @@ export class Player {
         this.gridZ = mapData.start_z !== undefined ? mapData.start_z : 1;
         this.stats = JSON.parse(JSON.stringify(playerData.stats));
         this.name = playerData.name;
+        this.rotationTarget = mapData.start_dir !== undefined ? mapData.start_dir : 0;
 
         // 2. アセット情報の取得
         const assetInfo = playerData.assets;
@@ -186,9 +187,15 @@ export class Player {
 
     checkTileEvent() {
         const event = this.mapManager.getEventAt(this.gridX, this.gridZ);
+
         if (event && event.type === 'heal') {
             if (this.stats) {
                 this.stats.hp = this.stats.maxHp;
+
+                // --- 視覚演出の実行 ---
+                this.createHealRing();
+                this.createHealPillar();
+
                 window.dispatchEvent(new CustomEvent('player-healed', {
                     detail: { hp: this.stats.hp, message: event.message }
                 }));
@@ -229,6 +236,95 @@ export class Player {
 
     updatePlayerPosition() {
         if (this.mesh) this.mesh.position.set(this.gridX * TILE_SIZE, 0, this.gridZ * TILE_SIZE);
+    }
+
+    flashEffect(color = 0xffffff) {
+        // mesh（カプセルやモデル）の中にある全Meshの material を一時的に発光させる
+        this.mesh.traverse(node => {
+            if (node.isMesh && node.material) {
+                const originalEmissive = node.material.emissive.getHex();
+                const originalIntensity = node.material.emissiveIntensity;
+
+                // 発光させる
+                node.material.emissive.setHex(color);
+                node.material.emissiveIntensity = 2.0;
+
+                // 0.5秒かけて元に戻す
+                setTimeout(() => {
+                    node.material.emissive.setHex(originalEmissive);
+                    node.material.emissiveIntensity = originalIntensity;
+                }, 500);
+            }
+        });
+    }
+
+    createHealRing() {
+        const geometry = new THREE.RingGeometry(0.1, 0.5, 32);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 1,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(geometry, material);
+
+        // 足元に水平に配置
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.05;
+        this.mesh.add(ring);
+
+        // アニメーション：広がりながら消える
+        const startTime = Date.now();
+        const duration = 1000;
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = elapsed / duration;
+
+            if (progress < 1) {
+                ring.scale.set(1 + progress * 3, 1 + progress * 3, 1);
+                ring.material.opacity = 1 - progress;
+                requestAnimationFrame(animate);
+            } else {
+                this.mesh.remove(ring);
+                geometry.dispose();
+                material.dispose();
+            }
+        };
+        animate();
+    }
+
+    createHealPillar() {
+        const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 16, 1, true);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide
+        });
+        const pillar = new THREE.Mesh(geometry, material);
+        pillar.position.y = 1; // プレイヤーを包む高さ
+        this.mesh.add(pillar);
+
+        const startTime = Date.now();
+        const duration = 800;
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = elapsed / duration;
+
+            if (progress < 1) {
+                // 上に伸びながら細くなる演出
+                pillar.scale.set(1 - progress, 1 + progress * 2, 1 - progress);
+                pillar.material.opacity = (1 - progress) * 0.5;
+                requestAnimationFrame(animate);
+            } else {
+                this.mesh.remove(pillar);
+                geometry.dispose();
+                material.dispose();
+            }
+        };
+        animate();
     }
 
     get hpPercent() {

@@ -2,6 +2,7 @@
     "map_id": 1,
     "width": 20,
     "height": 20,
+    "start_dir": 1.57,
     "tiles": [
         [
             1,
@@ -453,8 +454,7 @@
     "possible_enemies": [
         "e001",
         "e002",
-        "e003",
-        "e004"
+        "e003"
     ],
     "player_assets": {
         "model_url": "assets\/fbx\/character1_idle.fbx",
@@ -466,7 +466,7 @@
             "id": "n1771162393555",
             "name": "流浪の民",
             "x": 3,
-            "z": 5,
+            "z": 4,
             "model_url": "assets\/fbx\/character4_idle.fbx",
             "scale": 0.01,
             "dialogues": [
@@ -485,21 +485,32 @@
                 "このダンジョンから逃げたい...",
                 "この鍵をやるから、助けてくれ..."
             ]
+        },
+        {
+            "id": "n1771171372801",
+            "name": "闇の商人",
+            "x": 1,
+            "z": 14,
+            "model_url": "assets\/fbx\/character5_idle.fbx",
+            "scale": 0.01,
+            "dialogues": [
+                "このダンジョンから抜け出せない..."
+            ]
         }
     ],
     "events": [
         {
             "id": "ev1771164723001",
             "type": "heal",
-            "x": 8,
-            "z": 13,
+            "x": 7,
+            "z": 14,
             "message": "体力が全快した！"
         },
         {
             "id": "ev1771166221182",
             "type": "heal",
-            "x": 7,
-            "z": 13,
+            "x": 8,
+            "z": 14,
             "message": "体力が全快した！"
         }
     ],

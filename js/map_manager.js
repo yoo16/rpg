@@ -135,7 +135,6 @@ export class MapManager {
 
     // イベント判定（エラー回避のため追加）
     getEventAt(x, z) {
-        console.log('getEventAt', x, z);
         if (!this.mapData || !this.mapData.events) return null;
 
         // 座標が一致するイベントを探す

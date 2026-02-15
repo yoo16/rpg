@@ -84,6 +84,7 @@ body {
     background: var(--dialog-bg-color);
     color: var(--dialog-text-color);
     border: 2px solid var(--dialog-border-color);
+    border-radius: 10px;
     font-family: var(--font-mono);
     z-index: 50;
     pointer-events: none;
@@ -148,7 +149,7 @@ body {
     flex-direction: column;
     gap: 10px;
     color: var(--text-color);
-    font-family: var(--font-mono);
+    border-radius: 10px;
     min-width: 200px;
 }
 
