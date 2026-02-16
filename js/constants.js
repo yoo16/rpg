@@ -11,7 +11,8 @@ export const BATTLE_PHASE = {
     PLAYER_TURN: 'PLAYER_TURN',
     ENEMY_TURN: 'ENEMY_TURN',
     VICTORY: 'VICTORY',
-    DEFEAT: 'DEFEAT'
+    DEFEAT: 'DEFEAT',
+    LEVEL_UP: 'LEVEL_UP'
 };
 
 export const DIRECTION = {

@@ -71,7 +71,7 @@ export class Game {
             await this.mapManager.createNPCs();
 
             this.battleSystem = new BattleSystem(
-                this.player, this.camera, this.battleGroup, this.enemyMasterData,
+                this.player, this.mapManager, this.camera, this.battleGroup, this.enemyMasterData,
                 (win) => this.onBattleEnd(win)
             );
 
@@ -104,6 +104,7 @@ export class Game {
 
         this.worldGroup = new THREE.Group();
         this.battleGroup = new THREE.Group();
+        this.battleGroup.visible = false; // Hide initially directly
         this.scene.add(this.worldGroup, this.battleGroup);
 
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.2));
@@ -117,8 +118,13 @@ export class Game {
     onKeyDown(e) {
         if ((e.key === ' ' || e.key === 'Enter')) {
             e.preventDefault();
-            if (this.dialogActive) this.advanceDialog();
-            else if (this.currentState === STATE.MAP) this.checkInteraction();
+            if (this.currentState === STATE.BATTLE && this.battleSystem) {
+                this.battleSystem.onKeyDown(e.key);
+            } else if (this.dialogActive) {
+                this.advanceDialog();
+            } else if (this.currentState === STATE.MAP) {
+                this.checkInteraction();
+            }
         }
     }
 
@@ -171,7 +177,7 @@ export class Game {
 
     checkEncounter() {
         if (this.currentState !== STATE.MAP) return;
-        const rate = this.mapManager.mapData.encounter_rate || 0.05;
+        const rate = this.mapManager.mapData.encounter_rate;
         if (Math.random() < rate) { this.startBattle(); }
     }
 

@@ -30,7 +30,7 @@ $enemyData = [
         'attack_url' => 'assets/fbx/enemies/enemy1_attack.fbx',
         'damage_url' => 'assets/fbx/enemies/enemy1_damage.fbx',
         'death_url' => 'assets/fbx/enemies/enemy1_death.fbx',
-        'y_offset' => -1.0
+        'y_offset' => 0
     ],
     'e002' => [
         'name' => 'ふらみんご',
@@ -46,7 +46,7 @@ $enemyData = [
         'attack_url' => 'assets/fbx/enemies/enemy2_attack.fbx',
         'damage_url' => 'assets/fbx/enemies/enemy2_damage.fbx',
         'death_url' => 'assets/fbx/enemies/enemy2_death.fbx',
-        'y_offset' => -1.2
+        'y_offset' => 0
     ],
     'e003' => [
         'name' => 'らいらいおん',

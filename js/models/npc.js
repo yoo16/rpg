@@ -10,6 +10,7 @@ export class NPC {
         this.dialogues = data.dialogues;
         this.modelUrl = data.idle_url;
         this.animWalkUrl = data.anim_walk_url;
+        this.animVictoryUrl = data.anim_victory_url;
         this.scale = data.scale || 0.5;
         this.color = data.color;
 
@@ -49,11 +50,19 @@ export class NPC {
             this.group.add(this.mesh);
 
             this.mixer = new THREE.AnimationMixer(this.mesh);
-            // Play Idle animation (usually the first one or named 'idle')
             const idleClip = mainData.animations.find(a => a.name.toLowerCase().includes('idle')) || mainData.animations[0];
             if (idleClip) {
                 this.mixer.clipAction(idleClip).play();
             }
+        } else {
+            // Fallback: Create a simple box if model fails to load
+            const geometry = new THREE.BoxGeometry(0.5, 1.0, 0.5);
+            const material = new THREE.MeshLambertMaterial({ color: this.color || 0x00ff00 });
+            this.mesh = new THREE.Mesh(geometry, material);
+            this.mesh.position.y = 0.5; // Sit on ground
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            this.group.add(this.mesh);
         }
     }
 

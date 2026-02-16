@@ -52,8 +52,9 @@ export class UIManager {
         const pPercent = player.hpPercent;
         if (this.elPlayerHpBar) {
             this.elPlayerHpBar.style.width = `${pPercent}%`;
-            this.elPlayerHpBar.style.backgroundColor = pPercent < 20 ? 'var(--danger-color)' :
-                pPercent < 50 ? 'var(--caution-color)' : 'var(--safe-color)';
+            // Tailwind colors: safe=#1931ec, danger=#ff6666, caution (yellow-500)=#eab308
+            const color = pPercent < 20 ? '#ff6666' : pPercent < 50 ? '#eab308' : '#1931ec';
+            this.elPlayerHpBar.style.backgroundColor = color;
         }
         if (this.elPlayerHpText) {
             this.elPlayerHpText.textContent = `${Math.floor(player.stats.hp)} / ${player.stats.maxHp}`;
@@ -62,9 +63,9 @@ export class UIManager {
         const elLevel = document.getElementById('player-level');
         const elExp = document.getElementById('player-exp');
         const elNextExp = document.getElementById('player-next-exp');
-        if (elLevel) elLevel.textContent = `Lv.${player.stats.level}`;
-        if (elExp) elExp.textContent = `XP: ${player.stats.xp}`;
-        if (elNextExp) elNextExp.textContent = `Next: ${player.stats.nextXp}`;
+        if (elLevel) elLevel.textContent = `${player.stats.level}`;
+        if (elExp) elExp.textContent = `${player.stats.xp}`;
+        if (elNextExp) elNextExp.textContent = `${player.stats.nextXp}`;
     }
 
     // --- Battle UI Methods ---
@@ -80,7 +81,15 @@ export class UIManager {
         if (this.battleMessage) this.battleMessage.textContent = msg;
     }
 
+    setBattleCommandVisibility(visible) {
+        const cmdArea = document.getElementById('battle-commands');
+        if (cmdArea) cmdArea.style.display = visible ? 'flex' : 'none';
+    }
+
     toggleBattleButtons(enabled) {
+        // Deprecated or can be kept for enabling/disabling if needed, 
+        // but new requirement prefers hiding.
+        // For backwards compatibility or if we want to just disable without hiding:
         const btnAttack = document.getElementById('btn-attack');
         const btnRun = document.getElementById('btn-run');
         if (btnAttack) btnAttack.disabled = !enabled;
@@ -88,11 +97,6 @@ export class UIManager {
     }
 
     updateBattleStatus(player, enemy) {
-        // Player HP (Battle UI)
-        // Note: ID duplicates might exist if not careful, assuming IDs are unique in HTML
-        // If battle UI has separate HP bars from main UI, we handle them here.
-        // For now, reuse updatePlayerStatus for player, handle enemy here.
-
         if (enemy) {
             const eHP = Math.max(0, (enemy.stats.hp / enemy.stats.maxHp) * 100);
             const eBar = document.getElementById('enemy-hp-bar');

@@ -92,9 +92,11 @@
             <div>
                 <label class="text-xs text-slate-400">Model URL</label>
                 <select id="prop-model" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
-                    <option value="assets/fbx/character3_idle.fbx">character3</option>
-                    <option value="assets/fbx/character4_idle.fbx">character4</option>
-                    <option value="assets/fbx/character5_idle.fbx">character5</option>
+                    <option value="assets/fbx/characters/character1_idle.fbx">character1</option>
+                    <option value="assets/fbx/characters/character2_idle.fbx">character2</option>
+                    <option value="assets/fbx/characters/character3_idle.fbx">character3</option>
+                    <option value="assets/fbx/characters/character4_idle.fbx">character4</option>
+                    <option value="assets/fbx/characters/character5_idle.fbx">character5</option>
                 </select>
             </div>
             <div>

@@ -160,6 +160,43 @@ export class Enemy {
         });
     }
 
+    fadeOut(duration = 1000) {
+        const start = Date.now();
+        const initialOpacities = new Map();
+
+        // 1. Enable transparency and store initial opacity
+        this.group.traverse((child) => {
+            if (child.isMesh && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach(mat => {
+                    mat.transparent = true;
+                    if (!initialOpacities.has(mat)) {
+                        initialOpacities.set(mat, mat.opacity);
+                    }
+                });
+            }
+        });
+
+        // 2. Animate opacity
+        return new Promise(resolve => {
+            const animate = () => {
+                const elapsed = Date.now() - start;
+                const progress = Math.min(elapsed / duration, 1.0);
+
+                initialOpacities.forEach((initOpacity, mat) => {
+                    mat.opacity = initOpacity * (1 - progress);
+                });
+
+                if (progress < 1.0) {
+                    requestAnimationFrame(animate);
+                } else {
+                    resolve();
+                }
+            };
+            animate();
+        });
+    }
+
     dispose() {
         Object.values(this.meshes).forEach(mesh => {
             if (mesh) {

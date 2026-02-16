@@ -60,12 +60,14 @@ export class Player {
         const assetInfo = playerData.assets;
         const modelUrl = assetInfo?.idle_url;
         const walkUrl = assetInfo?.anim_walk_url;
+        const victoryUrl = assetInfo?.anim_victory_url;
         const scale = assetInfo?.scale || 0.01;
 
         // 3. モデルの読み込み試行
-        let [mainData, walkData] = await Promise.all([
+        let [mainData, walkData, victoryData] = await Promise.all([
             modelUrl ? this.loadModel(modelUrl) : Promise.resolve(null),
-            walkUrl ? this.loadModel(walkUrl) : Promise.resolve(null)
+            walkUrl ? this.loadModel(walkUrl) : Promise.resolve(null),
+            victoryUrl ? this.loadModel(victoryUrl) : Promise.resolve(null)
         ]);
 
         // 4. モデルがあればセットアップ、なければプレースホルダーを作成
@@ -89,6 +91,16 @@ export class Player {
             const walkClip = walkData.animations[0];
             if (walkClip) this.walkMixer.clipAction(walkClip).setDuration(1).play();
             this.walkModel.visible = false;
+        }
+
+        if (victoryData) {
+            this.victoryModel = victoryData.scene || victoryData;
+            this.setupModel(this.victoryModel, scale);
+            this.mesh.add(this.victoryModel);
+            this.victoryMixer = new THREE.AnimationMixer(this.victoryModel);
+            const victoryClip = victoryData.animations[0];
+            if (victoryClip) this.victoryMixer.clipAction(victoryClip).setDuration(1).play();
+            this.victoryModel.visible = false;
         }
 
         this.updatePlayerPosition();
@@ -135,10 +147,16 @@ export class Player {
     }
 
     updateAnimation(delta) {
-        if (!this.idleMixer && !this.walkMixer) return; // プレースホルダー時はスキップ
+        if (!this.idleMixer && !this.walkMixer) return;
 
-        this.setAnimationState(this.isMoving ? 'Walk' : 'Idle');
+        if (this.currentAnimState !== 'Victory') {
+            this.setAnimationState(this.isMoving ? 'Walk' : 'Idle');
+        }
 
+        this.updateMixers(delta);
+    }
+
+    updateMixers(delta) {
         if (this.idleMixer && this.idleModel?.visible) {
             this.idleMixer.update(delta);
             this.resetRootPosition(this.idleModel);
@@ -147,14 +165,28 @@ export class Player {
             this.walkMixer.update(delta);
             this.resetRootPosition(this.walkModel);
         }
+        if (this.victoryMixer && this.victoryModel?.visible) {
+            this.victoryMixer.update(delta);
+            this.resetRootPosition(this.victoryModel);
+        }
     }
 
     setAnimationState(state) {
         if (this.currentAnimState === state) return;
         this.currentAnimState = state;
         const isWalk = (state === 'Walk');
-        if (this.idleModel) this.idleModel.visible = !isWalk;
+        const isVictory = (state === 'Victory');
+
+        if (this.idleModel) this.idleModel.visible = (!isWalk && !isVictory);
         if (this.walkModel) this.walkModel.visible = isWalk;
+        if (this.victoryModel) this.victoryModel.visible = isVictory;
+    }
+
+    playVictory() {
+        this.setAnimationState('Victory');
+        if (this.victoryMixer && this.victoryModel?.visible) {
+            this.victoryMixer.clipAction(this.victoryModel.animations[0]).play();
+        }
     }
 
     rotateBy(angle) {

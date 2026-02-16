@@ -130,15 +130,15 @@ function addObject(x, z) {
         return;
     }
 
-    // 4. 新規作成ロジック：
+    // 4. ロジック：
     // 何も選択されていない、かつクリックした場所が空の場合
     if (!targetEntity && state.entity === 'npc') {
         const newNpc = {
             id: 'n' + Date.now(),
-            name: "New Villager",
+            name: "New NPC",
             x: x,
             z: z,
-            idle_url: "assets/fbx/character4_idle.fbx",
+            idle_url: "assets/fbx/characters/character1_idle.fbx",
             scale: 0.01,
             dialogues: ["こんにちは"]
         };

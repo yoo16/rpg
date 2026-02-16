@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { Enemy } from '../models/enemy.js';
 import { BATTLE_PHASE } from '../constants.js';
+import { BattleEnvironment } from '../views/battle_environment.js';
 
 export class BattleSystem {
-    constructor(player, camera, battleGroup, enemyMasterData, onBattleEnd) {
+    constructor(player, mapManager, camera, battleGroup, enemyMasterData, onBattleEnd) {
         this.player = player;
+        this.mapManager = mapManager;
         this.camera = camera;
         this.battleGroup = battleGroup;
         this.enemyMasterData = enemyMasterData;
@@ -17,7 +19,12 @@ export class BattleSystem {
         this.battleCameraTarget = { x: 0, y: 1.0, z: 0 };
 
         this.setupUI();
+
+        this.environment = new BattleEnvironment(this.battleGroup, this.mapManager);
+        this.environment.create();
     }
+
+
 
     async startBattle(possibleEnemyIds) {
         this.phase = BATTLE_PHASE.PLAYER_TURN;
@@ -109,33 +116,80 @@ export class BattleSystem {
 
         if (this.enemy.stats.hp <= 0) {
             this.phase = BATTLE_PHASE.VICTORY;
-            setTimeout(() => {
-                this.enemy.play('death');
-                const xpReward = (this.enemy.exp !== undefined) ? this.enemy.exp : 50;
-                this.addBattleLog(`Victory! ${xpReward} XP gains!`);
+            setTimeout(async () => {
+                const deathDuration = this.enemy.play('death');
+
+                const xpReward = (this.enemy.exp !== undefined) ? this.enemy.exp : 1;
+                this.addBattleLog(`${this.enemy.name}を倒した！${xpReward} 経験値を得た！`);
+
+                await new Promise(r => setTimeout(r, Math.min(deathDuration, 1000)));
+
+                await this.enemy.fadeOut(1000);
+
+                // Gain EXP
                 const leveledUp = this.player.gainXp(xpReward);
 
-                setTimeout(() => {
-                    if (leveledUp) {
-                        this.addBattleLog(`Level Up! Lv ${this.player.stats.level}!`);
-                        setTimeout(() => this.endBattle(true), 1500);
-                    } else {
-                        this.endBattle(true);
-                    }
-                }, 1000);
-            }, 1000);
+                if (leveledUp) {
+                    this.startLevelUpSequence(xpReward);
+                } else {
+                    this.endBattle(true);
+                }
+            }, 500);
         } else {
             this.phase = BATTLE_PHASE.ENEMY_TURN;
             setTimeout(() => {
-                this.enemy.play('idle'); // Ensure return to idle before attack just in case
+                this.enemy.play('idle');
                 setTimeout(() => this.onEnemyAttack(), 500);
             }, 1000);
+        }
+    }
+
+    async startLevelUpSequence(xpReward) {
+        this.phase = BATTLE_PHASE.LEVEL_UP;
+
+        // 1. 敵を消す
+        await this.enemy.fadeOut(1000);
+
+        // 2. 経験値を表示
+        const message = `
+        ${this.player.name}が ${this.player.stats.level} にレベルアップ！
+        `;
+        this.addBattleLog(message);
+
+        // 3. Move Player to Battle Scene Center
+        this.originalPlayerParent = this.player.mesh.parent;
+        this.originalPlayerPos = this.player.mesh.position.clone();
+        this.originalPlayerRot = this.player.mesh.rotation.y;
+        this.originalPlayerScale = this.player.mesh.scale.clone(); // Store scale
+
+        this.battleGroup.add(this.player.mesh);
+        this.player.mesh.position.set(0, 0, 0);
+        this.player.mesh.rotation.y = Math.PI;
+        // Scale up
+        this.player.mesh.scale.set(1.5, 1.5, 1.5);
+        this.player.mesh.visible = true;
+
+        // Camera Zoom
+        this.originalCameraPos = this.camera.position.clone();
+        this.camera.position.set(0, 1.5, 4); // Zoom in
+        this.camera.lookAt(0, 0.5, 0);
+
+        // 4. PlayerのVictory Animationを再生
+        this.player.playVictory();
+    }
+
+    onKeyDown(key) {
+        if (this.phase === BATTLE_PHASE.LEVEL_UP && key === 'Enter') {
+            this.endBattle(true);
         }
     }
 
     update(delta) {
         if (this.enemy) {
             this.enemy.update(delta);
+        }
+        if (this.phase === BATTLE_PHASE.LEVEL_UP && this.player) {
+            this.player.updateMixers(delta);
         }
     }
 
@@ -175,6 +229,22 @@ export class BattleSystem {
             this.enemy.dispose();
         }
         this.enemy = null;
+
+        // Restore Player if needed
+        if (this.phase === BATTLE_PHASE.LEVEL_UP && this.originalPlayerParent) {
+            this.originalPlayerParent.add(this.player.mesh);
+            this.player.mesh.position.copy(this.originalPlayerPos);
+            this.player.mesh.rotation.y = this.originalPlayerRot;
+            if (this.originalPlayerScale) this.player.mesh.scale.copy(this.originalPlayerScale);
+            this.player.setAnimationState('Idle');
+            this.originalPlayerParent = null;
+
+            // Restore Camera
+            if (this.originalCameraPos) {
+                this.camera.position.copy(this.originalCameraPos);
+            }
+        }
+
         this.hideBattleUI();
         if (this.onBattleEnd) this.onBattleEnd(isVictory);
     }
@@ -216,10 +286,16 @@ export class BattleSystem {
     hideBattleUI() { document.getElementById('battle-ui').style.display = 'none'; }
     addBattleLog(msg) { document.getElementById('battle-message').textContent = msg; }
     enableButtons() {
+        const cmdArea = document.getElementById('battle-commands');
+        if (cmdArea) cmdArea.style.display = 'flex';
+
         document.getElementById('btn-attack').disabled = false;
         document.getElementById('btn-run').disabled = false;
     }
     disableButtons() {
+        const cmdArea = document.getElementById('battle-commands');
+        if (cmdArea) cmdArea.style.display = 'none';
+
         document.getElementById('btn-attack').disabled = true;
         document.getElementById('btn-run').disabled = true;
     }
