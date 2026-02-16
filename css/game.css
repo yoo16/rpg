@@ -151,6 +151,8 @@ body {
     color: var(--text-color);
     border-radius: 10px;
     min-width: 200px;
+    color: #ffffff;
+    font-size: 12px;
 }
 
 .battle-button {
@@ -179,8 +181,7 @@ body {
 .hp-bar-container {
     width: 200px;
     height: 20px;
-    background-color: rgba(28, 238, 0, 0.6);
-    border: 2px solid rgba(28, 238, 0, 0.5);
+    background-color: rgba(255, 255, 255, 0.6);
     border-radius: 5px;
     overflow: hidden;
     position: relative;
@@ -196,7 +197,6 @@ body {
 }
 
 .hp-text {
-    font-size: 12px;
     display: block;
     text-align: right;
 }

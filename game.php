@@ -42,13 +42,13 @@
                 <p><span id="player-name" class="value">読み込み中...</span></p>
                 <p><span id="player-level" class="value">Lv.1</span></p>
                 <div class="hp-bar-container">
-                    <div id="player-hp-bar" class="hp-fill" style="width: 100%; background-color: var(--safe-color);"></div>
+                    <div id="player-hp-bar" class="hp-bar-fill" style="width: 100%; background-color: var(--safe-color);"></div>
                 </div>
                 <span id="player-hp-text" class="hp-text"></span>
+                <?php if (true): ?>
+                    <p><span>FPS:</span><span id="fps">60</span></p>
+                <?php endif; ?>
             </div>
-            <?php if (true): ?>
-                <p><span class="label">FPS:</span> <span id="fps" class="value">60</span></p>
-            <?php endif; ?>
         </div>
     </div>
 

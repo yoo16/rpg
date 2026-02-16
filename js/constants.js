@@ -20,3 +20,6 @@ export const DIRECTION = {
     LEFT: 'LEFT',
     RIGHT: 'RIGHT'
 };
+
+export const LEVEL_UP_BASE_XP = 100;
+export const LEVEL_UP_GROWTH_FACTOR = 1.5;

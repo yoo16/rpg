@@ -1,4 +1,4 @@
-import { Game } from './game.js';
+import { Game } from './controllers/game.js';
 
 // DOMが読み込まれてから開始
 window.addEventListener('DOMContentLoaded', () => {

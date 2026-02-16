@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { TILE_SIZE } from './constants.js';
+import { TILE_SIZE, LEVEL_UP_BASE_XP, LEVEL_UP_GROWTH_FACTOR } from '../constants.js';
 
 export class Player {
     constructor(mapManager, onEncounter) {
@@ -11,6 +11,15 @@ export class Player {
         this.gridX = 1;
         this.gridZ = 1;
         this.mesh = new THREE.Group();
+        this.stats = {
+            hp: 100,
+            maxHp: 100,
+            attack: 10,
+            defense: 5,
+            level: 1,
+            xp: 0,
+            nextXp: LEVEL_UP_BASE_XP
+        };
 
         this.idleModel = null;
         this.walkModel = null;
@@ -31,7 +40,19 @@ export class Player {
         // 1. 座標とステータスの初期化
         this.gridX = mapData.start_x !== undefined ? mapData.start_x : 1;
         this.gridZ = mapData.start_z !== undefined ? mapData.start_z : 1;
-        this.stats = JSON.parse(JSON.stringify(playerData.stats));
+
+        // Initialize stats with defaults if not present
+        const baseStats = playerData.stats || {};
+        this.stats = {
+            hp: baseStats.hp || 100,
+            maxHp: baseStats.maxHp || 100,
+            attack: baseStats.attack || 10,
+            defense: baseStats.defense || 5,
+            level: baseStats.level || 1,
+            xp: baseStats.xp || 0,
+            nextXp: baseStats.nextXp || LEVEL_UP_BASE_XP
+        };
+
         this.name = playerData.name;
         this.rotationTarget = mapData.start_dir !== undefined ? mapData.start_dir : 0;
 
@@ -153,7 +174,9 @@ export class Player {
 
         const { width, height, tiles } = this.mapManager.mapData;
         if (targetX < 0 || targetX >= width || targetZ < 0 || targetZ >= height) return;
-        if (tiles[targetZ][targetX] === 1 || tiles[targetZ][targetX] === 2) return;
+        // Tile 1 is Wall
+        // Tile 2 is Water (walkable)
+        if (tiles[targetZ][targetX] === 1) return;
 
         const npc = this.mapManager.getNPCAt(targetX, targetZ);
         if (npc) return;
@@ -325,6 +348,25 @@ export class Player {
             }
         };
         animate();
+    }
+
+    gainXp(amount) {
+        this.stats.xp += amount;
+        let leveledUp = false;
+        while (this.stats.xp >= this.stats.nextXp) {
+            this.levelUp();
+            leveledUp = true;
+        }
+        return leveledUp;
+    }
+
+    levelUp() {
+        this.stats.level++;
+        this.stats.maxHp += 20;
+        this.stats.hp = this.stats.maxHp; // Full heal
+        this.stats.attack += 5;
+        this.stats.defense += 2;
+        this.stats.nextXp = Math.floor(this.stats.nextXp * LEVEL_UP_GROWTH_FACTOR);
     }
 
     get hpPercent() {

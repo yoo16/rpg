@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { BATTLE_PHASE } from './constants.js';
+import { BATTLE_PHASE } from '../constants.js';
 
 export class BattleSystem {
     constructor(player, camera, battleGroup, enemyMasterData, onBattleEnd) {
@@ -187,8 +187,17 @@ export class BattleSystem {
         if (this.enemy.stats.hp <= 0) {
             this.phase = BATTLE_PHASE.VICTORY;
             setTimeout(() => {
-                this.addBattleLog('Victory!');
-                setTimeout(() => this.endBattle(true), 1500);
+                const xpReward = (this.enemy.stats && this.enemy.stats.xp) ? this.enemy.stats.xp : 50;
+                this.addBattleLog(`Victory! ${xpReward} XP gains!`);
+                const leveledUp = this.player.gainXp(xpReward);
+                if (leveledUp) {
+                    setTimeout(() => {
+                        this.addBattleLog(`Level Up! Lv ${this.player.stats.level}!`);
+                        setTimeout(() => this.endBattle(true), 1500);
+                    }, 1000);
+                } else {
+                    setTimeout(() => this.endBattle(true), 1500);
+                }
             }, 1000);
         } else {
             this.phase = BATTLE_PHASE.ENEMY_TURN;

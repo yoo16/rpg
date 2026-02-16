@@ -109,7 +109,7 @@
         </div>
     </aside>
 
-    <script src="js/editor.js" type="module"></script>
+    <script src="js/controllers/editor.js" type="module"></script>
 </body>
 
 </html>
