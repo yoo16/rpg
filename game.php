@@ -77,6 +77,7 @@
             <div class="flex flex-col gap-2 text-sm">
                 <p><span id="player-name" class="font-bold text-white text-base">読み込み中...</span></p>
                 <p>Map: <span id="map-id">1</span></p>
+                <p>Pos: (<span id="pos-x">0</span>, <span id="pos-z">0</span>)</p>
                 <p>Lv.<span id="player-level" class="text-white">1</span></p>
                 <p>EXP: <span id="player-exp">0</span></p>
                 <p>Next: <span id="player-next-exp">0</span></p>

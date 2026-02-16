@@ -37,6 +37,9 @@ export class Game {
         this.dialogIndex = 0;
         this.currentNPCId = null;
 
+        // Global Event State (Persistent across maps)
+        this.globalEventState = new Set();
+
         // Bind for loop
         this.startGameLoop = this.startGameLoop.bind(this);
 
@@ -53,10 +56,6 @@ export class Game {
             this.setupThreeJS();
 
             // Setup DialogManager (needs game context for onEnd events and access to managers)
-            // Note: We need player and mapManager initialized before some dialog actions,
-            // but the constructor just references them. References are objects so it's fine
-            // as long as we don't access properties immediately.
-            // Actually, player is created in constructor, mapManager too.
             this.dialogManager = new DialogManager(this);
 
             const [pRes, mRes, eRes] = await Promise.all([
@@ -67,7 +66,7 @@ export class Game {
 
             // Enemy作成
             this.enemyMasterData = eRes.data.enemies;
-            this.mapManager.init(mRes.data.map);
+            this.mapManager.init(mRes.data.map, this.globalEventState); // Pass global state
             this.uiManager.updateMapId(this.mapManager.mapData.id || 1);
             this.worldGroup.add(this.mapManager.group);
 
@@ -198,6 +197,12 @@ export class Game {
 
     checkEncounter() {
         if (this.currentState !== STATE.MAP) return;
+
+        // Skip encounter if near NPC (Safe Zone)
+        if (this.mapManager.isNearAnyNPC(this.player.gridX, this.player.gridZ, 3)) {
+            return;
+        }
+
         const rate = this.mapManager.mapData.encounter_rate;
         if (Math.random() < rate) { this.startBattle(); }
     }
@@ -242,18 +247,22 @@ export class Game {
             // --- 追加：イベント成功時の View 更新ロジック ---
             if (result.success) {
                 if (event.type === 'open_door') {
-                    // 3D空間上の壁への反映は event.execute 内の MapManager 経由で行われるが、
-                    // エフェクトはここで再生する
                     this.player.flashEffect(0xffffff);
                 }
+
+                // Persist state (Save executed event ID)
+                if (event.once || event.type === 'open_door' || event.type === 'set_flag') {
+                    const uniqueId = `${this.mapManager.mapData.map_id}_${event.id}`;
+                    this.globalEventState.add(uniqueId);
+                    console.log(`Saved event state: ${uniqueId}`);
+                }
+
                 this.updateAllStatusUI();
             }
         }
     }
 
     handleAction() {
-        // ... (handleAction logic if referenced, but seems unused in update loop now)
-        // Leaving it or updating it just in case:
         const target = this.player.getForwardTile();
         const event = this.mapManager.getEventAt(target.x, target.z);
 
@@ -328,16 +337,45 @@ export class Game {
         this.isRunning = false;
 
         try {
+            // 現在のマップIDを保存（戻り先検索用）
+            const currentMapId = this.mapManager.mapData ? this.mapManager.mapData.map_id : null;
+
             // マップデータを取得
             const mRes = await GameApi.getMapData(mapId);
 
             // マップを再初期化
-            this.mapManager.init(mRes.data.map);
+            this.mapManager.init(mRes.data.map, this.globalEventState);
             this.uiManager.updateMapId(mapId);
 
             // スタート位置を設定
-            const destX = (typeof startX === 'number') ? startX : (mRes.data.map.start_x || 1);
-            const destZ = (typeof startZ === 'number') ? startZ : (mRes.data.map.start_z || 1);
+            let destX = startX;
+            let destZ = startZ;
+
+            // 座標指定がない場合、戻り先のワープイベントを探す (Warp Source Priority)
+            if (typeof destX !== 'number' || typeof destZ !== 'number') {
+                if (currentMapId) {
+                    console.log(`Searching for return warp to Map ${currentMapId} in Map ${mapId}...`);
+                    // 新しいマップの中から「前のマップへのワープ」を探す
+                    // Loose equality for map ID safely handles string/number mix-up
+                    const returnWarp = mRes.data.map.events.find(e =>
+                        e.type === 'warp' && e.warp_to_map == currentMapId
+                    );
+
+                    if (returnWarp) {
+                        console.log(`✅ Found return warp at (${returnWarp.x}, ${returnWarp.z})`);
+                        destX = returnWarp.x;
+                        destZ = returnWarp.z;
+                    } else {
+                        console.warn(`⚠️ No return warp found. Events checked:`, mRes.data.map.events.filter(e => e.type === 'warp'));
+                    }
+                }
+
+                // それでも見つからなければマップの初期位置
+                if (typeof destX !== 'number') destX = mRes.data.map.start_x || 1;
+                if (typeof destZ !== 'number') destZ = mRes.data.map.start_z || 1;
+            }
+
+            console.log(`Final Spawn Position: (${destX}, ${destZ})`);
 
             this.player.gridX = destX;
             this.player.gridZ = destZ;

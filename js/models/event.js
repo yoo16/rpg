@@ -7,13 +7,8 @@ export class GameEvent {
         this.message = data.message;
         this.message_fail = data.message_fail; // Message when condition fails
 
-        // Trigger type: 'touch' (step on), 'action' (press button), 'auto'
         this.trigger = data.trigger || 'touch';
-
-        // Conditions (e.g., { flag: 'has_key', value: true })
         this.condition = data.condition || null;
-
-        // Actions (e.g., { type: 'set_flag', key: 'door_open', value: true })
         this.action = data.action || null;
 
         // One-time event?
@@ -59,7 +54,6 @@ export class GameEvent {
             case 'open_door':
                 if (game && game.mapManager) {
                     game.mapManager.openDoor(this.x, this.z);
-                    // player.flashEffect(0xffffff);
                 }
                 break;
             case 'warp':

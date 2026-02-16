@@ -19,9 +19,10 @@ export class MapManager {
         this.fbxLoader = new FBXLoader();
     }
 
-    init(mapData) {
+    init(mapData, globalEventState = new Set()) {
         // マップデータの初期化
         this.mapData = mapData;
+        this.globalEventState = globalEventState;
 
         // テクスチャ読み込み
         const textureLoader = new THREE.TextureLoader();
@@ -35,9 +36,17 @@ export class MapManager {
         this.doorClosedTexture = textureLoader.load('assets/textures/door_closed.png');
         this.doorOpenTexture = textureLoader.load('assets/textures/door_open.png');
 
-        // イベントの初期化
+        // イベントの初期化と状態復元
         if (this.mapData.events) {
-            this.mapData.events = this.mapData.events.map(evData => new GameEvent(evData));
+            this.mapData.events = this.mapData.events.map(evData => {
+                const ev = new GameEvent(evData);
+                const uniqueId = `${this.mapData.map_id}_${ev.id}`;
+                if (this.globalEventState.has(uniqueId)) {
+                    console.log(`Restoring event state: ${uniqueId}`);
+                    ev.executed = true;
+                }
+                return ev;
+            });
         }
 
         // マップの作成
@@ -105,6 +114,19 @@ export class MapManager {
         return { adjacent: adjacentToAny, npc: foundNPC };
     }
 
+    // NPCの近くにいるか判定 (エンカウント防止用)
+    isNearAnyNPC(x, z, radius = 3) {
+        for (const npc of this.npcs) {
+            const dx = Math.abs(x - npc.x);
+            const dz = Math.abs(z - npc.z);
+            // Check if within square radius (Chebyshev distance)
+            if (dx <= radius && dz <= radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // マップの作成
     createMap() {
         const { tiles, width, height } = this.mapData;
@@ -119,7 +141,14 @@ export class MapManager {
                     const isDoor = event && event.type === 'open_door';
 
                     if (isDoor) {
-                        this.createDoor(worldX, worldZ, x, z);
+                        if (event.executed) {
+                            // Already open: Treat as floor
+                            this.mapData.tiles[z][x] = 0;
+                            this.createFloor(worldX, worldZ);
+                            this.createCeiling(worldX, worldZ);
+                        } else {
+                            this.createDoor(worldX, worldZ, x, z);
+                        }
                     } else {
                         this.createWall(worldX, worldZ);
                     }
@@ -279,16 +308,14 @@ export class MapManager {
             const idx = this.mapMeshes.indexOf(mesh);
             if (idx > -1) this.mapMeshes.splice(idx, 1);
         });
+        // 床を再作成
+        this.createFloor(worldX, worldZ);
 
         // 通行可能にする
         if (this.mapData.tiles[z] && this.mapData.tiles[z][x] !== undefined) {
             this.mapData.tiles[z][x] = 0;
         }
 
-        // 床を再作成
-        // Create Warp Event
-        // DEPRECATED: Door events no longer create warp events automatically.
-        // Players must place a separate 'warp' event to handle transitions.
 
         console.log(`Door opened at ${x},${z}.`);
     }
