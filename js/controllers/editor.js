@@ -98,7 +98,6 @@ function handlePaint(x, z, el) {
     refreshIcons(el, x, z);
 }
 
-// エンティティ追加/編集
 // エンティティ追加/編集/移動
 function addObject(x, z) {
     state.isMouseDown = false;
@@ -170,15 +169,44 @@ function showProperties(entity) {
 
     panel.classList.remove('hidden');
 
-    // NPCかEventかで表示を切り替える（今回はNPCメイン）
+    // NPCかEventかで表示を切り替える
     const isNpc = entity.id.startsWith('n');
-    document.getElementById('prop-name').value = entity.name || (isNpc ? "" : "Event");
-    document.getElementById('prop-model').value = entity.idle_url || "";
-    document.getElementById('prop-scale').value = entity.scale || 0.01;
-    document.getElementById('prop-dialog').value = isNpc ? (entity.dialogues || []).join('\n') : (entity.message || "");
+    const npcFields = document.getElementById('prop-npc-fields');
+    const eventFields = document.getElementById('prop-event-fields');
+
+    if (isNpc) {
+        npcFields.classList.remove('hidden');
+        eventFields.classList.add('hidden');
+
+        document.getElementById('prop-name').value = entity.name || "";
+        document.getElementById('prop-model').value = entity.idle_url || "";
+        document.getElementById('prop-scale').value = entity.scale || 0.01;
+        document.getElementById('prop-dialog').value = (entity.dialogues || []).join('\n');
+    } else {
+        npcFields.classList.add('hidden');
+        eventFields.classList.remove('hidden');
+
+        document.getElementById('prop-ev-type').value = entity.type || 'heal';
+        document.getElementById('prop-ev-trigger').value = entity.trigger || 'touch';
+
+        // Conditions
+        const condFlag = entity.condition ? entity.condition.flag : '';
+        const condVal = entity.condition ? String(entity.condition.value) : 'true';
+        document.getElementById('prop-ev-cond-flag').value = condFlag;
+        document.getElementById('prop-ev-cond-val').value = condVal;
+
+        // Actions
+        const actKey = entity.action ? entity.action.key : '';
+        const actVal = entity.action ? String(entity.action.value) : 'true';
+        document.getElementById('prop-ev-act-key').value = actKey;
+        document.getElementById('prop-ev-act-val').value = actVal;
+
+        document.getElementById('prop-ev-msg').value = entity.message || "";
+        document.getElementById('prop-ev-msg-fail').value = entity.message_fail || "";
+        document.getElementById('prop-ev-once').checked = !!entity.once;
+    }
 }
 
-// Apply Changes ボタン (windowに登録してHTMLから呼べるようにする)
 // Apply Changes ボタン (データの確定と選択解除)
 window.applyProperties = () => {
     if (!selectedEntity) return;
@@ -191,20 +219,47 @@ window.applyProperties = () => {
         selectedEntity.dialogues = document.getElementById('prop-dialog').value.split('\n').filter(line => line.trim() !== "");
     } else {
         // イベントの更新
-        selectedEntity.message = document.getElementById('prop-dialog').value;
+        selectedEntity.type = document.getElementById('prop-ev-type').value;
+        selectedEntity.trigger = document.getElementById('prop-ev-trigger').value;
+        selectedEntity.message = document.getElementById('prop-ev-msg').value;
+        selectedEntity.message_fail = document.getElementById('prop-ev-msg-fail').value;
+        selectedEntity.once = document.getElementById('prop-ev-once').checked;
+
+        // 条件
+        const condFlag = document.getElementById('prop-ev-cond-flag').value.trim();
+        if (condFlag) {
+            selectedEntity.condition = {
+                flag: condFlag,
+                value: document.getElementById('prop-ev-cond-val').value === 'true'
+            };
+        } else {
+            selectedEntity.condition = null;
+        }
+
+        // アクション
+        const actKey = document.getElementById('prop-ev-act-key').value.trim();
+        if (actKey) {
+            selectedEntity.action = {
+                key: actKey,
+                value: document.getElementById('prop-ev-act-val').value === 'true'
+            };
+        } else {
+            selectedEntity.action = null;
+        }
     }
 
-    alert("Updated: " + (selectedEntity.name || "Event"));
+    // 変更を保存
+    saveMap();
 
-    // --- 追加修正：選択状態の解除 ---
-    selectedEntity = null; // 参照をクリア
+    // 選択状態の解除
+    selectedEntity = null;
     const panel = document.getElementById('properties-panel');
-    if (panel) panel.classList.add('hidden'); // パネルを閉じる
+    if (panel) panel.classList.add('hidden');
 
-    renderGrid(); // 黄色い枠（selected-entityクラス）を消すために再描画
+    renderGrid();
 };
 
-// --- 削除・補助機能 ---
+// 削除・補助機能
 function removeObject(x, z) {
     const initialNpcCount = mapData.npcs.length;
     const initialEventCount = mapData.events.length;
@@ -274,17 +329,44 @@ function updateUI() {
     }
 }
 
-window.saveMap = async () => {
+// --- メッセージを表示する関数 ---
+function showFlashMessage(text, isError = false) {
     const status = document.getElementById('status');
-    status.innerText = '🛰️ Saving...';
+    if (!status) return;
+
+    // テキストと色の設定
+    status.innerText = text;
+    if (isError) {
+        status.classList.replace('bg-blue-600/90', 'bg-red-600/90');
+    } else {
+        status.classList.replace('bg-red-600/90', 'bg-blue-600/90');
+    }
+
+    // 表示
+    status.classList.remove('opacity-0');
+    status.classList.add('opacity-100');
+
+    // 2秒後に非表示
+    setTimeout(() => {
+        status.classList.remove('opacity-100');
+        status.classList.add('opacity-0');
+    }, 2000);
+}
+
+window.saveMap = async () => {
     try {
         const res = await fetch('api/save_map.php', {
             method: 'POST',
             body: JSON.stringify(mapData)
         });
-        status.innerText = '✅ Saved!';
+
+        if (res.ok) {
+            showFlashMessage('✅ マップを保存しました');
+        } else {
+            throw new Error('Server Error');
+        }
     } catch (e) {
-        status.innerText = '❌ Error';
+        showFlashMessage('❌ 保存に失敗しました', true);
         console.error(e);
     }
 };

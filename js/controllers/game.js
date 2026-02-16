@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import GameApi from '../services/api.js';
 import { BattleSystem } from '../controllers/battle_system.js';
+import { GameEvent } from '../models/event.js';
 import { Player } from '../models/player.js';
 import { MapManager } from '../services/map_manager.js';
 import { InputManager } from '../services/input_manager.js';
@@ -56,25 +57,30 @@ export class Game {
                 GameApi.getEnemyData()
             ]);
 
+            // Enemy作成
             this.enemyMasterData = eRes.data.enemies;
             this.mapManager.init(mRes.data.map);
             this.worldGroup.add(this.mapManager.group);
 
+            // Player作成
             await this.player.init(pRes.data.player, mRes.data.map);
             this.worldGroup.add(this.player.mesh);
 
-            // Add player torch
+            // Playerのライト
             const playerLight = new THREE.PointLight(0xffaa00, 1.5, 10);
             playerLight.position.set(0, 2, 0);
             this.player.mesh.add(playerLight);
 
+            // NPC作成
             await this.mapManager.createNPCs();
 
+            // BattleSystem作成
             this.battleSystem = new BattleSystem(
                 this.player, this.mapManager, this.camera, this.battleGroup, this.enemyMasterData,
                 (win) => this.onBattleEnd(win)
             );
 
+            // Loading画面を閉じる
             this.uiManager.hideLoading();
 
             // Setup Opening Camera
@@ -134,9 +140,9 @@ export class Game {
         const keys = this.inputManager.keys;
         if (keys['ArrowUp'] || keys['w']) {
             this.player.moveForward();
-        } else if (keys['ArrowDown'] || keys['s']) {
-            this.player.rotateBy(Math.PI);
-            keys['ArrowDown'] = false; keys['s'] = false;
+            // } else if (keys['ArrowDown'] || keys['s']) {
+            //     this.player.rotateBy(Math.PI);
+            //     keys['ArrowDown'] = false; keys['s'] = false;
         } else if (keys['ArrowLeft'] || keys['a']) {
             this.player.rotateBy(Math.PI / 2);
             keys['ArrowLeft'] = false; keys['a'] = false;
@@ -148,7 +154,10 @@ export class Game {
 
     update(delta) {
         if (this.currentState === STATE.MAP) {
-            this.player.updateMovement(delta);
+            const movementFinished = this.player.updateMovement(delta);
+            if (movementFinished) {
+                this.checkTileEvent();
+            }
             this.handleInput();
             if (!this.dialogActive) this.checkNPCProximity();
             this.player.updateAnimation(delta);
@@ -210,18 +219,32 @@ export class Game {
         }
 
         const event = this.mapManager.getEventAt(x, z);
-        if (event && event.type === 'heal') {
-            this.executeHeal();
-            this.showDialog(null, event.message);
+        if (event && event.trigger === 'action') {
+            const result = event.execute(this.player, this);
+
+            // ダイアログを表示（成功メッセージ or 失敗メッセージ）
+            if (result.message) {
+                this.showDialog(null, result.message);
+            }
+
+            // --- 追加：イベント成功時の View 更新ロジック ---
+            if (result.success) {
+                if (event.type === 'open_door') {
+                    // 3D空間上の壁への反映は event.execute 内の MapManager 経由で行われるが、
+                    // エフェクトはここで再生する
+                    this.player.flashEffect(0xffffff);
+                }
+                this.updateAllStatusUI();
+            }
         }
     }
 
-    executeHeal() {
-        this.player.stats.hp = this.player.stats.maxHp;
-    }
-
     startNPCDialog(npc) {
-        this.currentDialog = { name: npc.name, dialogues: npc.dialogues || [] };
+        this.currentDialog = {
+            name: npc.name,
+            dialogues: npc.dialogues || [],
+            onEnd: npc.onTalk // Already a GameEvent instance
+        };
         this.currentNPCId = npc.id;
         this.dialogIndex = 0;
 
@@ -267,6 +290,22 @@ export class Game {
     }
 
     hideDialog() {
+        // Check for post-dialogue event
+        if (this.currentDialog && this.currentDialog.onEnd) {
+            const result = this.currentDialog.onEnd.execute(this.player, this);
+
+            // If the event executed successfully and returned a message, show it.
+            if (result.success && result.message) {
+                // Clear the current dialog context so we don't return to it
+                this.currentDialog = null;
+                this.dialogIndex = 0;
+
+                // Show the event result message
+                this.showDialog(null, result.message);
+                return;
+            }
+        }
+
         this.uiManager.hideDialog();
         this.dialogActive = false;
         this.currentDialog = null;
@@ -297,6 +336,21 @@ export class Game {
         this.update(delta);
         this.render();
         requestAnimationFrame(this.startGameLoop);
+    }
+
+    checkTileEvent() {
+        const { x, z } = this.player; // Player grid coords are updated
+        const px = this.player.gridX;
+        const pz = this.player.gridZ;
+
+        const event = this.mapManager.getEventAt(px, pz);
+        console.log(x, z, event);
+        if (event && event.trigger === 'touch') {
+            const result = event.execute(this.player, this);
+            if (result.message) {
+                this.showDialog(null, result.message);
+            }
+        }
     }
 
     render() {

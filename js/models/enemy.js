@@ -143,7 +143,6 @@ export class Enemy {
             if (mixer) mixer.update(delta);
         });
 
-        // Reset root bone position (hips) to keep them centered
         Object.values(this.meshes).forEach(mesh => {
             if (mesh && mesh.visible) {
                 this._resetRootPosition(mesh);

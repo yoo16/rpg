@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE } from '../constants.js';
 import { NPC } from '../models/npc.js';
+import { GameEvent } from '../models/event.js';
 
 export class MapManager {
     constructor() {
@@ -27,18 +28,19 @@ export class MapManager {
         this.waterTexture.wrapS = THREE.RepeatWrapping;
         this.waterTexture.wrapT = THREE.RepeatWrapping;
 
+        // Parse Events
+        if (this.mapData.events) {
+            this.mapData.events = this.mapData.events.map(evData => new GameEvent(evData));
+        }
+
         this.createMap();
     }
-
-    // ... (rest of methods) ...
-
-
 
     async createNPCs() {
         if (!this.mapData.npcs) return;
 
         this.npcs = [];
-        this.npcMeshes = []; // Reset
+        this.npcMeshes = [];
 
         const promises = this.mapData.npcs.map(async (npcData) => {
             const npc = new NPC(npcData);
@@ -180,5 +182,36 @@ export class MapManager {
         mesh.position.set(x, 0.01, z);
         this.group.add(mesh);
         this.mapMeshes.push(mesh);
+    }
+
+    openDoor(x, z) {
+        // タイル座標をワールド座標に変換
+        const targetX = x * TILE_SIZE;
+        const targetZ = z * TILE_SIZE;
+
+        // 壁メッシュを削除
+        const toRemove = [];
+        this.mapMeshes.forEach(mesh => {
+            if (Math.abs(mesh.position.x - targetX) < 0.1 && Math.abs(mesh.position.z - targetZ) < 0.1) {
+                toRemove.push(mesh);
+            }
+        });
+
+        // 壁メッシュを削除
+        toRemove.forEach(mesh => {
+            this.group.remove(mesh);
+            if (mesh.geometry) mesh.geometry.dispose();
+            const idx = this.mapMeshes.indexOf(mesh);
+            if (idx > -1) this.mapMeshes.splice(idx, 1);
+        });
+
+        // Create Floor
+        this.createFloor(targetX, targetZ);
+        this.createCeiling(targetX, targetZ);
+
+        // Update Map Data to be walkable
+        if (this.mapData.tiles[z] && this.mapData.tiles[z][x] !== undefined) {
+            this.mapData.tiles[z][x] = 0;
+        }
     }
 }

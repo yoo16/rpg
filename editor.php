@@ -9,6 +9,10 @@
 </head>
 
 <body class="h-full flex text-slate-200 overflow-hidden">
+    <div id="status" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] 
+    pointer-events-none opacity-0 transition-opacity duration-500
+    bg-blue-600/90 text-white px-8 py-4 rounded-2xl shadow-2xl font-bold text-lg border border-blue-400/50">
+    </div>
 
     <aside id="palette" class="w-72 bg-slate-800 border-r border-slate-700 p-6 flex flex-col gap-8 overflow-y-auto">
         <div>
@@ -62,7 +66,7 @@
                     👤 NPC
                 </button>
                 <button onclick="setEntity('event')" id="btn-ent-event" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
-                    ✨ Heal Point
+                    ✨ Event
                 </button>
             </div>
         </section>
@@ -70,7 +74,6 @@
             <button onclick="saveMap()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition">
                 💾 Save JSON
             </button>
-            <div id="status" class="mt-4 text-center text-xs font-mono text-slate-500 min-h-[1em]"></div>
         </div>
     </aside>
 
@@ -106,6 +109,55 @@
             <div>
                 <label class="text-xs text-slate-400">Dialogues / Message</label>
                 <textarea id="prop-dialog" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="NPCの台詞またはイベントメッセージ"></textarea>
+            </div>
+            <button onclick="applyProperties()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-colors">Apply Changes</button>
+        </div>
+
+        <div id="prop-event-fields" class="space-y-4 hidden">
+            <div>
+                <label class="text-xs text-slate-400">Type</label>
+                <select id="prop-ev-type" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                    <option value="heal">Heal (全回復)</option>
+                    <option value="open_door">Open Door (扉を開ける)</option>
+                    <option value="dialogue">Dialogue (会話のみ)</option>
+                    <option value="set_flag">Set Flag (フラグセット)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Trigger</label>
+                <select id="prop-ev-trigger" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                    <option value="touch">Touch (踏む)</option>
+                    <option value="action">Action (調べる)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Condition (Flag check)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="prop-ev-cond-flag" placeholder="Flag Key (e.g. has_key)" class="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                    <select id="prop-ev-cond-val" class="w-20 bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Action (Set Flag)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="prop-ev-act-key" placeholder="Key to set" class="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                    <select id="prop-ev-act-val" class="w-20 bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Messages</label>
+                <textarea id="prop-ev-msg" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Success Message"></textarea>
+                <textarea id="prop-ev-msg-fail" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Fail Message (Locked etc)"></textarea>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="prop-ev-once" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500">
+                <label for="prop-ev-once" class="text-xs text-slate-400">Execute Once (一回のみ)</label>
             </div>
             <button onclick="applyProperties()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-colors">Apply Changes</button>
         </div>

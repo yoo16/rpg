@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { TILE_SIZE } from '../constants.js';
 
+import { GameEvent } from './event.js';
+
 export class NPC {
     constructor(data) {
         this.id = data.id;
@@ -13,32 +15,35 @@ export class NPC {
         this.animVictoryUrl = data.anim_victory_url;
         this.scale = data.scale || 0.5;
         this.color = data.color;
+        this.onTalk = data.on_talk ? new GameEvent(data.on_talk) : null;
 
         this.group = new THREE.Group();
         this.mesh = null;
         this.mixer = null;
 
-        // Initial position
         this.group.position.set(this.x * TILE_SIZE, 0, this.z * TILE_SIZE);
-
-        // Store reference to this instance in userData for raycasting/lookup if needed
         this.group.userData = { id: this.id, npc: this };
     }
 
     async load(gltfLoader, fbxLoader) {
-        // Helper to choose loader
         const loadModel = (url) => {
             if (!url) return Promise.resolve(null);
+
+            // キャッシュ回避用のパラメータを追加
+            const cacheBuster = `?t=${new Date().getTime()}`;
+            const dynamicUrl = url + cacheBuster;
+
             const ext = url.split('.').pop().toLowerCase();
             const loader = (ext === 'fbx') ? fbxLoader : gltfLoader;
+
             return new Promise((resolve) => {
-                loader.load(url, (data) => resolve(data), undefined, (err) => {
+                console.log("Loading NPC model (no-cache):", dynamicUrl);
+                loader.load(dynamicUrl, (data) => resolve(data), undefined, (err) => {
                     console.warn(`Failed to load NPC model: ${url}`, err);
                     resolve(null);
                 });
             });
         };
-
         const [mainData, walkData] = await Promise.all([
             loadModel(this.modelUrl),
             loadModel(this.animWalkUrl)

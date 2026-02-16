@@ -26,6 +26,9 @@ export class Player {
         this.idleMixer = null;
         this.walkMixer = null;
 
+        this.flags = new Map(); // Game state flags
+
+
         this.isMoving = false;
         this.isRotating = false;
         this.targetPosition = null;
@@ -232,30 +235,18 @@ export class Player {
             this.mesh.position.copy(targetPos);
             this.isMoving = false;
             this.targetPosition = null;
-            this.checkTileEvent();
             if (this.onEncounter) this.onEncounter();
+            return true; // Movement finished
         } else {
             const moveDir = targetPos.clone().sub(currentPos).normalize();
             currentPos.add(moveDir.multiplyScalar(Math.min(speed * deltaTime, distance)));
+            return false;
         }
     }
 
     checkTileEvent() {
-        const event = this.mapManager.getEventAt(this.gridX, this.gridZ);
-
-        if (event && event.type === 'heal') {
-            if (this.stats) {
-                this.stats.hp = this.stats.maxHp;
-
-                // --- 視覚演出の実行 ---
-                this.createHealRing();
-                this.createHealPillar();
-
-                window.dispatchEvent(new CustomEvent('player-healed', {
-                    detail: { hp: this.stats.hp, message: event.message }
-                }));
-            }
-        }
+        // Event handling is now delegated to Game controller via mapManager
+        // This method might be redundant or can be used to notify Game to check events
     }
 
     smoothRotate(deltaTime) {
@@ -399,6 +390,24 @@ export class Player {
         this.stats.attack += 5;
         this.stats.defense += 2;
         this.stats.nextXp = Math.floor(this.stats.nextXp * LEVEL_UP_GROWTH_FACTOR);
+    }
+
+    healFull() {
+        this.stats.hp = this.stats.maxHp;
+        this.createHealRing();
+        this.createHealPillar();
+        window.dispatchEvent(new CustomEvent('player-healed', {
+            detail: { hp: this.stats.hp, message: 'HPが全快した！' }
+        }));
+    }
+
+    setFlag(key, value) {
+        this.flags.set(key, value);
+        console.log(`🚩 Flag Set: ${key} = ${value}`);
+    }
+
+    getFlag(key) {
+        return this.flags.get(key);
     }
 
     get hpPercent() {
