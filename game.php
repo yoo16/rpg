@@ -41,6 +41,8 @@
             <div class="status-panel">
                 <p><span id="player-name" class="value">読み込み中...</span></p>
                 <p><span id="player-level" class="value">Lv.1</span></p>
+                <p><span id="player-exp" class="value"></span></p>
+                <p><span id="player-next-exp" class="value"></span></p>
                 <div class="hp-bar-container">
                     <div id="player-hp-bar" class="hp-bar-fill" style="width: 100%; background-color: var(--safe-color);"></div>
                 </div>

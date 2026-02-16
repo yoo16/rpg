@@ -138,12 +138,12 @@ function addObject(x, z) {
             name: "New Villager",
             x: x,
             z: z,
-            model_url: "assets/fbx/character4_idle.fbx",
+            idle_url: "assets/fbx/character4_idle.fbx",
             scale: 0.01,
             dialogues: ["こんにちは"]
         };
         mapData.npcs.push(newNpc);
-        showProperties(newNpc); // 作成直後に選択状態にする
+        showProperties(newNpc);
         renderGrid();
     } else if (!targetEntity && state.entity === 'event') {
         const newEv = {
@@ -173,7 +173,7 @@ function showProperties(entity) {
     // NPCかEventかで表示を切り替える（今回はNPCメイン）
     const isNpc = entity.id.startsWith('n');
     document.getElementById('prop-name').value = entity.name || (isNpc ? "" : "Event");
-    document.getElementById('prop-model').value = entity.model_url || "";
+    document.getElementById('prop-model').value = entity.idle_url || "";
     document.getElementById('prop-scale').value = entity.scale || 0.01;
     document.getElementById('prop-dialog').value = isNpc ? (entity.dialogues || []).join('\n') : (entity.message || "");
 }
@@ -186,7 +186,7 @@ window.applyProperties = () => {
     if (selectedEntity.id.startsWith('n')) {
         // NPCの更新
         selectedEntity.name = document.getElementById('prop-name').value;
-        selectedEntity.model_url = document.getElementById('prop-model').value;
+        selectedEntity.idle_url = document.getElementById('prop-model').value;
         selectedEntity.scale = parseFloat(document.getElementById('prop-scale').value);
         selectedEntity.dialogues = document.getElementById('prop-dialog').value.split('\n').filter(line => line.trim() !== "");
     } else {

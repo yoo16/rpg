@@ -8,7 +8,7 @@ export class NPC {
         this.x = Math.round(data.x);
         this.z = Math.round(data.z);
         this.dialogues = data.dialogues;
-        this.modelUrl = data.model_url;
+        this.modelUrl = data.idle_url;
         this.animWalkUrl = data.anim_walk_url;
         this.scale = data.scale || 0.5;
         this.color = data.color;

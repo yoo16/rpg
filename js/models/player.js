@@ -58,7 +58,7 @@ export class Player {
 
         // 2. アセット情報の取得
         const assetInfo = playerData.assets;
-        const modelUrl = assetInfo?.model_url;
+        const modelUrl = assetInfo?.idle_url;
         const walkUrl = assetInfo?.anim_walk_url;
         const scale = assetInfo?.scale || 0.01;
 
@@ -363,7 +363,7 @@ export class Player {
     levelUp() {
         this.stats.level++;
         this.stats.maxHp += 20;
-        this.stats.hp = this.stats.maxHp; // Full heal
+        this.stats.hp = this.stats.maxHp;
         this.stats.attack += 5;
         this.stats.defense += 2;
         this.stats.nextXp = Math.floor(this.stats.nextXp * LEVEL_UP_GROWTH_FACTOR);

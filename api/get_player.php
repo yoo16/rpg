@@ -8,13 +8,13 @@ $playerData = [
             "id" => "p001",
             "name" => "勇者",
             "assets" => [
-                "model_url" => "assets/fbx/character2_idle.fbx",
-                "anim_walk_url" => "assets/fbx/character2_walk.fbx",
+                "idle_url" => "assets/fbx/players/player1_idle.fbx",
+                "anim_walk_url" => "assets/fbx/players/player1_walk.fbx",
                 "scale" => 0.01
             ],
             "stats" => [
-                "hp" => 100,
-                "maxHp" => 100,
+                "hp" => 50,
+                "maxHp" => 50,
                 "attack" => 15,
                 "defense" => 5
             ]

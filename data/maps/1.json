@@ -3,6 +3,9 @@
     "width": 20,
     "height": 20,
     "start_dir": 1.57,
+    "start_x": 10,
+    "start_z": 2,
+    "encounter_rate": 0.05,
     "tiles": [
         [
             1,
@@ -450,24 +453,20 @@
         "wall",
         "water"
     ],
-    "encounter_rate": 0.01,
     "possible_enemies": [
         "e001",
         "e002",
-        "e003"
+        "e003",
+        "e004",
+        "e005"
     ],
-    "player_assets": {
-        "model_url": "assets\/fbx\/character1_idle.fbx",
-        "anim_walk_url": "assets\/fbx\/character1_walk.fbx",
-        "scale": 0.01
-    },
     "npcs": [
         {
             "id": "n1771162393555",
             "name": "流浪の民",
             "x": 3,
             "z": 4,
-            "model_url": "assets\/fbx\/character4_idle.fbx",
+            "idle_url": "assets\/fbx\/characters\/character1_idle.fbx",
             "scale": 0.01,
             "dialogues": [
                 "このダンジョンには宝が隠されている",
@@ -479,7 +478,7 @@
             "name": "謎の民",
             "x": 15,
             "z": 3,
-            "model_url": "assets\/fbx\/character3_idle.fbx",
+            "idle_url": "assets\/fbx\/characters\/character2_idle.fbx",
             "scale": 0.01,
             "dialogues": [
                 "このダンジョンから逃げたい...",
@@ -488,10 +487,10 @@
         },
         {
             "id": "n1771171372801",
-            "name": "旅人",
+            "name": "泉の民",
             "x": 4,
             "z": 17,
-            "model_url": "assets\/fbx\/character5_idle.fbx",
+            "idle_url": "assets\/fbx\/characters\/character3_idle.fbx",
             "scale": 0.01,
             "dialogues": [
                 "この泉にはいると元気になるのよ。"
@@ -513,7 +512,5 @@
             "z": 13,
             "message": "体力が全快した！"
         }
-    ],
-    "start_x": 10,
-    "start_z": 2
+    ]
 }

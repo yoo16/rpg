@@ -59,13 +59,12 @@ export class UIManager {
             this.elPlayerHpText.textContent = `${Math.floor(player.stats.hp)} / ${player.stats.maxHp}`;
         }
 
-        // Update Level and XP (assuming elements exist or adding them dynamically if needed, 
-        // but for now let's assume we might need to add them to HTML or just log/display elsewhere)
-        // ideally checking for element existence first
         const elLevel = document.getElementById('player-level');
-        const elXp = document.getElementById('player-xp');
+        const elExp = document.getElementById('player-exp');
+        const elNextExp = document.getElementById('player-next-exp');
         if (elLevel) elLevel.textContent = `Lv.${player.stats.level}`;
-        if (elXp) elXp.textContent = `XP: ${player.stats.xp} / ${player.stats.nextXp}`;
+        if (elExp) elExp.textContent = `XP: ${player.stats.xp}`;
+        if (elNextExp) elNextExp.textContent = `Next: ${player.stats.nextXp}`;
     }
 
     // --- Battle UI Methods ---
