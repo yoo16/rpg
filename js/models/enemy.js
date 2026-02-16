@@ -47,6 +47,7 @@ export class Enemy {
         this.fbxLoader = new FBXLoader();
     }
 
+    // モデルのロード
     async load() {
         const [idle, attack, damage, death] = await Promise.all([
             this._loadModel(this.urls.idle),
@@ -61,6 +62,7 @@ export class Enemy {
         this._setupMesh('death', death, false);
     }
 
+    // URLを指定して FBX または GLB をロード
     _loadModel(url) {
         if (!url) return Promise.resolve(null);
         const ext = url.split('.').pop().toLowerCase();
@@ -74,20 +76,21 @@ export class Enemy {
         });
     }
 
-
-
-    // Improved play logic with action storage
+    // メッシュの設定
     _setupMesh(type, data, isVisible) {
         if (!data) return;
 
+        // メッシュとアニメーションを取得
         const mesh = data.scene || data;
         const animations = data.animations || [];
 
+        // メッシュの設定
         this.meshes[type] = mesh;
         mesh.visible = isVisible;
         mesh.scale.set(this.scale, this.scale, this.scale);
         mesh.position.set(0, this.y_offset, 0);
 
+        // メッシュのプロパティを設定
         mesh.traverse(node => {
             if (node.isMesh) {
                 node.castShadow = true;
@@ -100,24 +103,27 @@ export class Enemy {
             }
         });
 
+        // アニメーションミキサーを作成
         this.mixers[type] = new THREE.AnimationMixer(mesh);
-
         if (animations.length > 0) {
             const clip = animations[0];
             const action = this.mixers[type].clipAction(clip);
             if (type !== 'idle') {
+                // アイドル以外のループ設定
                 action.setLoop(THREE.LoopOnce);
                 action.clampWhenFinished = true;
             } else {
+                // アイドルのループ設定
                 action.play();
             }
-            // Store clip for duration query
+            // アニメーションのクリップを保存
             this.meshes[type].userData = { clip: clip, action: action };
         }
 
         this.group.add(mesh);
     }
 
+    // 再生
     play(type) {
         // Hide all
         Object.values(this.meshes).forEach(m => { if (m) m.visible = false; });
@@ -138,6 +144,7 @@ export class Enemy {
         return 1000; // Default
     }
 
+    // 更新
     update(delta) {
         Object.values(this.mixers).forEach(mixer => {
             if (mixer) mixer.update(delta);
@@ -150,6 +157,7 @@ export class Enemy {
         });
     }
 
+    // ルートボーンの位置をリセット
     _resetRootPosition(model) {
         model.traverse(node => {
             if (node.isBone && (node.name.toLowerCase().includes('hips') || node.name.toLowerCase().includes('root'))) {
@@ -159,6 +167,7 @@ export class Enemy {
         });
     }
 
+    // フェードアウト
     fadeOut(duration = 1000) {
         const start = Date.now();
         const initialOpacities = new Map();
@@ -196,12 +205,14 @@ export class Enemy {
         });
     }
 
+    // メッシュの処分
     dispose() {
         Object.values(this.meshes).forEach(mesh => {
             if (mesh) {
                 mesh.traverse(node => {
                     if (node.isMesh) {
                         node.geometry.dispose();
+                        // マテリアルを処分
                         const mats = Array.isArray(node.material) ? node.material : [node.material];
                         mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
                     }

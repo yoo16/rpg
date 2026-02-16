@@ -2,6 +2,7 @@ export class InputManager {
     constructor() {
         this.keys = {};
         this.setupListeners();
+        console.log("InputManager initialized");
     }
 
     setupListeners() {
@@ -14,10 +15,14 @@ export class InputManager {
         });
     }
 
-    // イベントフック用（Gameクラスから上書きまたはバインドする）
+    // Event hook (overwritten by Game)
     onKeyDown(e) { }
 
     isKeyPressed(key) {
         return !!this.keys[key];
+    }
+
+    isActionPressed() {
+        return this.keys[' '] || this.keys['Enter'];
     }
 }

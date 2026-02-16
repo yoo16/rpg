@@ -76,6 +76,7 @@
         <div id="player-status-ui" class="absolute top-5 left-5 p-4 bg-black/50 text-gray-100 border-2 border-black/70 rounded-lg z-50 pointer-events-none backdrop-blur-sm min-w-[200px]">
             <div class="flex flex-col gap-2 text-sm">
                 <p><span id="player-name" class="font-bold text-white text-base">読み込み中...</span></p>
+                <p>Map: <span id="map-id">1</span></p>
                 <p>Lv.<span id="player-level" class="text-white">1</span></p>
                 <p>EXP: <span id="player-exp">0</span></p>
                 <p>Next: <span id="player-next-exp">0</span></p>

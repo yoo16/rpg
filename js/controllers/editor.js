@@ -9,21 +9,95 @@ let state = {
 
 // --- 初期化 ---
 window.onload = async () => {
-    await loadMap();
+    await loadMapList();
+    // URL param check? or load default
+    const urlParams = new URLSearchParams(window.location.search);
+    const mapId = urlParams.get('id') || 1;
+    await loadMap(mapId);
     setupEvents();
     updateUI();
 };
 
-async function loadMap() {
+async function loadMapList() {
     try {
-        const res = await fetch('api/get_map.php?id=1');
+        const res = await fetch('api/list_maps.php');
         const json = await res.json();
-        mapData = json.data.map;
-        renderGrid();
+        const select = document.getElementById('map-select');
+        select.innerHTML = '';
+
+        json.data.forEach(map => {
+            const opt = document.createElement('option');
+            opt.value = map.id;
+            opt.textContent = `${map.id}: ${map.name}`;
+            select.appendChild(opt);
+        });
+
+        // Add listener
+        select.onchange = (e) => loadMap(e.target.value);
     } catch (e) {
-        console.error("Map Load Error:", e);
+        console.error("Failed to load map list", e);
     }
 }
+
+async function loadMap(id) {
+    try {
+        const res = await fetch(`api/get_map.php?id=${id}`);
+        if (!res.ok) throw new Error("Map not found");
+        const json = await res.json();
+        mapData = json.data.map;
+
+        // Strictly enforce map_id to match the requested ID
+        // This prevents overwriting other maps if the JSON file has a wrong internal ID (e.g. from copy-paste)
+        mapData.map_id = parseInt(id);
+
+        renderGrid();
+
+        // Update Select UI to match loaded map
+        const select = document.getElementById('map-select');
+        if (select) select.value = id;
+
+        console.log(`Loaded Map ${id} (Internal ID fixed to ${mapData.map_id})`);
+
+    } catch (e) {
+        console.error("Map Load Error:", e);
+        showFlashMessage("マップ読み込みエラー", true);
+    }
+}
+
+window.createNewMap = async () => {
+    if (!confirm("新しいマップを作成しますか？")) return;
+
+    // Get current IDs to find next
+    const res = await fetch('api/list_maps.php');
+    const json = await res.json();
+    const ids = json.data.map(m => m.id);
+    const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+
+    const newMap = {
+        map_id: nextId,
+        width: 20,
+        height: 20,
+        name: `Map ${nextId}`,
+        tiles: Array(20).fill().map(() => Array(20).fill(1)), // All walls default
+        legend: ["floor", "wall", "water"],
+        npcs: [],
+        events: [],
+        start_x: 1,
+        start_z: 1,
+        start_dir: 0,
+        encounter_rate: 0.05
+    };
+
+    // Client-side switch first
+    mapData = newMap;
+    // Save to create file
+    await saveMap();
+    // Reload list and UI
+    await loadMapList();
+    document.getElementById('map-select').value = nextId;
+    renderGrid();
+    showFlashMessage(`New Map ${nextId} created!`);
+};
 
 function setupEvents() {
     // 既存のイベント
@@ -155,6 +229,28 @@ function addObject(x, z) {
         mapData.events.push(newEv);
         showProperties(newEv);
         renderGrid();
+    } else if (!targetEntity && state.entity === 'door') {
+        // Door Logic:
+        // 1. Set tile to Wall (1)
+        mapData.tiles[z][x] = 1;
+
+        // 2. Create Event
+        const newEv = {
+            id: 'ev' + Date.now(),
+            type: 'open_door',
+            x: x,
+            z: z,
+            trigger: 'action',
+            condition: { flag: 'has_key', value: true }, // Default: requires key
+            message: "扉が開いた！",
+            message_fail: "扉は封印されている...",
+            once: false,
+            action: null
+        };
+        mapData.events.push(newEv);
+
+        showProperties(newEv);
+        renderGrid();
     } else if (targetEntity) {
         // 5. すでにあるエンティティをクリックした場合は「選択（プロパティ表示）」
         showProperties(targetEntity);
@@ -284,12 +380,23 @@ function refreshIcons(el, x, z) {
 
     if (npc) {
         el.classList.add('icon-npc');
-        // 選択中ならクラス追加
         if (selectedEntity && selectedEntity.id === npc.id) el.classList.add('selected-entity');
     }
 
     if (ev) {
         el.classList.add('icon-event');
+        if (ev.type === 'open_door') {
+            el.classList.remove('icon-event');
+            el.classList.add('icon-door');
+            el.innerText = '🚪';
+        } else if (ev.type === 'warp') {
+            el.classList.remove('icon-event');
+            el.classList.add('icon-warp'); // You can add CSS for this class if needed 
+            el.innerText = '🌀';
+        } else if (ev.type === 'heal') {
+            el.classList.remove('icon-event');
+            el.innerText = '💖';
+        }
         if (selectedEntity && selectedEntity.id === ev.id) el.classList.add('selected-entity');
     }
 }
@@ -347,11 +454,15 @@ function showFlashMessage(text, isError = false) {
     status.classList.add('opacity-100');
 
     // 2秒後に非表示
+    // 2秒後に非表示
     setTimeout(() => {
         status.classList.remove('opacity-100');
         status.classList.add('opacity-0');
     }, 2000);
 }
+
+// Global expose
+window.showStatus = showFlashMessage;
 
 window.saveMap = async () => {
     try {

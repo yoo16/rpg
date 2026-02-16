@@ -6,6 +6,7 @@ import { Player } from '../models/player.js';
 import { MapManager } from '../services/map_manager.js';
 import { InputManager } from '../services/input_manager.js';
 import { CameraManager } from '../services/camera_manager.js';
+import { DialogManager } from '../services/dialog_manager.js';
 import { UIManager } from '../views/ui_manager.js';
 import { STATE } from '../constants.js';
 
@@ -51,6 +52,13 @@ export class Game {
             await GameApi.initConfig();
             this.setupThreeJS();
 
+            // Setup DialogManager (needs game context for onEnd events and access to managers)
+            // Note: We need player and mapManager initialized before some dialog actions,
+            // but the constructor just references them. References are objects so it's fine
+            // as long as we don't access properties immediately.
+            // Actually, player is created in constructor, mapManager too.
+            this.dialogManager = new DialogManager(this);
+
             const [pRes, mRes, eRes] = await Promise.all([
                 GameApi.getPlayerInitData(),
                 GameApi.getMapData(1),
@@ -60,6 +68,7 @@ export class Game {
             // Enemy作成
             this.enemyMasterData = eRes.data.enemies;
             this.mapManager.init(mRes.data.map);
+            this.uiManager.updateMapId(this.mapManager.mapData.id || 1);
             this.worldGroup.add(this.mapManager.group);
 
             // Player作成
@@ -126,8 +135,8 @@ export class Game {
             e.preventDefault();
             if (this.currentState === STATE.BATTLE && this.battleSystem) {
                 this.battleSystem.onKeyDown(e.key);
-            } else if (this.dialogActive) {
-                this.advanceDialog();
+            } else if (this.dialogManager.isActive) {
+                this.dialogManager.advance();
             } else if (this.currentState === STATE.MAP) {
                 this.checkInteraction();
             }
@@ -135,14 +144,11 @@ export class Game {
     }
 
     handleInput() {
-        if (this.player.isMoving || this.player.isRotating || this.dialogActive || this.currentState !== STATE.MAP) return;
+        if (this.player.isMoving || this.player.isRotating || this.dialogManager.isActive || this.currentState !== STATE.MAP) return;
 
         const keys = this.inputManager.keys;
         if (keys['ArrowUp'] || keys['w']) {
             this.player.moveForward();
-            // } else if (keys['ArrowDown'] || keys['s']) {
-            //     this.player.rotateBy(Math.PI);
-            //     keys['ArrowDown'] = false; keys['s'] = false;
         } else if (keys['ArrowLeft'] || keys['a']) {
             this.player.rotateBy(Math.PI / 2);
             keys['ArrowLeft'] = false; keys['a'] = false;
@@ -159,7 +165,13 @@ export class Game {
                 this.checkTileEvent();
             }
             this.handleInput();
-            if (!this.dialogActive) this.checkNPCProximity();
+            if (!this.dialogManager.isActive) this.checkNPCProximity();
+
+            // Check for Action Input (Space/Enter)
+            // if (this.inputManager.isActionPressed()) {
+            //     this.handleAction();
+            // }
+
             this.player.updateAnimation(delta);
             this.mapManager.update(delta);
 
@@ -209,7 +221,7 @@ export class Game {
 
     // --- Interaction ---
     checkInteraction() {
-        if (this.dialogActive) return;
+        if (this.dialogManager.isActive) return;
         const { x, z } = this.player.getFacingPosition();
 
         const npcData = this.mapManager.getNPCAt(x, z);
@@ -224,7 +236,7 @@ export class Game {
 
             // ダイアログを表示（成功メッセージ or 失敗メッセージ）
             if (result.message) {
-                this.showDialog(null, result.message);
+                this.dialogManager.show(null, result.message);
             }
 
             // --- 追加：イベント成功時の View 更新ロジック ---
@@ -239,84 +251,36 @@ export class Game {
         }
     }
 
-    startNPCDialog(npc) {
-        this.currentDialog = {
-            name: npc.name,
-            dialogues: npc.dialogues || [],
-            onEnd: npc.onTalk // Already a GameEvent instance
-        };
-        this.currentNPCId = npc.id;
-        this.dialogIndex = 0;
+    handleAction() {
+        // ... (handleAction logic if referenced, but seems unused in update loop now)
+        // Leaving it or updating it just in case:
+        const target = this.player.getForwardTile();
+        const event = this.mapManager.getEventAt(target.x, target.z);
 
-        // Turn player to NPC
-        if (this.player) {
-            const dx = npc.x - this.player.gridX;
-            const dz = npc.z - this.player.gridZ;
-            this.player.rotationTarget = Math.atan2(-dx, -dz);
-            this.player.isRotating = true;
+        if (event && event.trigger === 'action') {
+            const result = event.execute(this.player, this);
+            if (result.message) {
+                this.dialogManager.show(null, result.message);
+            }
+            return;
         }
 
-        // Turn NPC to player
-        this.mapManager.lookAtPlayer(npc.id, this.player.gridX, this.player.gridZ);
-
-        this.cameraManager.setZoom(true);
-        if (this.player.setOpacity) this.player.setOpacity(0.3);
-
-        this.showDialog();
-    }
-
-    showDialog(title = null, message = null) {
-        let displayTitle = title;
-        let displayText = message;
-
-        if (!message && this.currentDialog) {
-            displayTitle = `【${this.currentDialog.name}】`;
-            displayText = this.currentDialog.dialogues[this.dialogIndex];
-        } else if (!title && message) {
-            displayTitle = "【案内】";
-        }
-
-        this.dialogActive = true;
-        this.uiManager.showDialog(displayTitle, displayText);
-    }
-
-    advanceDialog() {
-        this.dialogIndex++;
-        if (!this.currentDialog || this.dialogIndex >= this.currentDialog.dialogues.length) {
-            this.hideDialog();
-        } else {
-            this.showDialog();
-        }
-    }
-
-    hideDialog() {
-        // Check for post-dialogue event
-        if (this.currentDialog && this.currentDialog.onEnd) {
-            const result = this.currentDialog.onEnd.execute(this.player, this);
-
-            // If the event executed successfully and returned a message, show it.
-            if (result.success && result.message) {
-                // Clear the current dialog context so we don't return to it
-                this.currentDialog = null;
-                this.dialogIndex = 0;
-
-                // Show the event result message
-                this.showDialog(null, result.message);
-                return;
+        // Check for NPC interaction
+        if (this.currentNPCId && !this.dialogManager.isActive) {
+            const npc = this.mapManager.npcs.find(n => n.id === this.currentNPCId);
+            if (npc) {
+                this.startNPCDialog(npc);
             }
         }
-
-        this.uiManager.hideDialog();
-        this.dialogActive = false;
-        this.currentDialog = null;
-        this.dialogIndex = 0;
-        // Do NOT clear currentNPCId here, to prevent immediate re-trigger
-        // this.currentNPCId = null; 
-
-        this.cameraManager.setZoom(false);
-        if (this.player.setOpacity) this.player.setOpacity(1.0);
     }
 
+    // NPCとの会話開始
+    startNPCDialog(npc) {
+        this.currentNPCId = npc.id;
+        this.dialogManager.start(npc);
+    }
+
+    // NPCとの距離チェック
     checkNPCProximity() {
         const px = this.player.gridX;
         const pz = this.player.gridZ;
@@ -325,11 +289,12 @@ export class Game {
         if (result.npc) {
             this.startNPCDialog(result.npc);
         } else if (!result.adjacent) {
-            // Only clear if not adjacent anymore AND not currently in a triggered dialog
-            if (!this.dialogActive) this.currentNPCId = null;
+            // ダイアログがアクティブでない場合のみ、currentNPCIdをnullにする
+            if (!this.dialogManager.isActive) this.currentNPCId = null;
         }
     }
 
+    // ゲームループ
     startGameLoop() {
         if (!this.isRunning) return;
         const delta = this.clock.getDelta();
@@ -338,18 +303,62 @@ export class Game {
         requestAnimationFrame(this.startGameLoop);
     }
 
+    // タイルイベントチェック
     checkTileEvent() {
-        const { x, z } = this.player; // Player grid coords are updated
+        const { x, z } = this.player;
         const px = this.player.gridX;
         const pz = this.player.gridZ;
-
         const event = this.mapManager.getEventAt(px, pz);
         console.log(x, z, event);
         if (event && event.trigger === 'touch') {
             const result = event.execute(this.player, this);
             if (result.message) {
-                this.showDialog(null, result.message);
+                this.dialogManager.show(null, result.message);
             }
+            if (result.type === 'warp') {
+                this.warpToMap(result.mapId, result.x, result.z);
+            }
+        }
+    }
+
+    // マップ遷移
+    async warpToMap(mapId, startX, startZ) {
+        console.log(`Warping to Map ${mapId}...`);
+        this.uiManager.showLoading();
+        this.isRunning = false;
+
+        try {
+            // マップデータを取得
+            const mRes = await GameApi.getMapData(mapId);
+
+            // マップを再初期化
+            this.mapManager.init(mRes.data.map);
+            this.uiManager.updateMapId(mapId);
+
+            // スタート位置を設定
+            const destX = (typeof startX === 'number') ? startX : (mRes.data.map.start_x || 1);
+            const destZ = (typeof startZ === 'number') ? startZ : (mRes.data.map.start_z || 1);
+
+            this.player.gridX = destX;
+            this.player.gridZ = destZ;
+            this.player.rotationTarget = mRes.data.map.start_dir || 0;
+            this.player.updatePlayerPosition();
+            this.player.mesh.rotation.y = this.player.rotationTarget;
+
+            // NPCを再作成
+            await this.mapManager.createNPCs();
+
+            // カメラをリセット
+            // this.cameraManager.snapToPlayer();
+
+            // ゲームループを再開
+            this.isRunning = true;
+            this.startGameLoop();
+        } catch (e) {
+            console.error("Warp failed:", e);
+            this.uiManager.showLoadingError("Map Load Failed");
+        } finally {
+            this.uiManager.hideLoading();
         }
     }
 

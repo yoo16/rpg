@@ -103,7 +103,7 @@ export class NPC {
     }
 
     lookAt(targetX, targetZ) {
-        // Calculate grid difference
+        // グリッド差分を計算
         const dx = targetX - this.x;
         const dz = targetZ - this.z;
         const angle = Math.atan2(dx, dz);

@@ -19,6 +19,14 @@
             <h1 class="text-xl font-bold text-white flex items-center gap-2">
                 <span class="text-2xl">🗺️</span> Map Editor Pro
             </h1>
+            <div class="mt-4 flex gap-2">
+                <select id="map-select" class="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 outline-none focus:border-blue-500">
+                    <option value="">Loading...</option>
+                </select>
+                <button onclick="createNewMap()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-sm font-bold shadow transition">
+                    +
+                </button>
+            </div>
         </div>
 
         <section>
@@ -67,6 +75,9 @@
                 </button>
                 <button onclick="setEntity('event')" id="btn-ent-event" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
                     ✨ Event
+                </button>
+                <button onclick="setEntity('door')" id="btn-ent-door" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
+                    🚪 Door
                 </button>
             </div>
         </section>

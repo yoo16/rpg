@@ -410,6 +410,33 @@ export class Player {
         return this.flags.get(key);
     }
 
+    getForwardTile() {
+        // Normalize rotation to 0-2PI
+        let rot = this.mesh.rotation.y % (Math.PI * 2);
+        if (rot < 0) rot += Math.PI * 2;
+
+        // Direction vectors (approximate)
+        const directions = [
+            { x: 0, z: 1, label: 'S' }, // 0
+            { x: 1, z: 0, label: 'E' }, // PI/2 (Left rotation?)
+            { x: 0, z: -1, label: 'N' }, // PI
+            { x: -1, z: 0, label: 'W' }  // 3PI/2
+        ];
+
+        // Simple 4-way direction from rotation
+        const index = Math.round(rot / (Math.PI / 2)) % 4;
+
+        let dx = 0, dz = 0;
+        switch (index) {
+            case 0: dz = 1; break; // South
+            case 1: dx = 1; break; // Left/East?
+            case 2: dz = -1; break; // North
+            case 3: dx = -1; break; // Right/West
+        }
+
+        return { x: this.gridX + dx, z: this.gridZ + dz };
+    }
+
     get hpPercent() {
         if (!this.stats || this.stats.maxHp <= 0) return 0;
         return Math.min(100, Math.max(0, (this.stats.hp / this.stats.maxHp) * 100));

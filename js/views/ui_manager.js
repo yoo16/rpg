@@ -13,6 +13,7 @@ export class UIManager {
         this.elPlayerHpText = document.getElementById('player-hp-text');
         this.elPosX = document.getElementById('pos-x');
         this.elPosZ = document.getElementById('pos-z');
+        this.elMapId = document.getElementById('map-id');
     }
 
     showLoading() {
@@ -34,11 +35,13 @@ export class UIManager {
         if (!this.dialogUI) return;
         this.dialogTitle.textContent = title;
         this.dialogText.textContent = message;
-        this.dialogUI.style.display = 'block';
+        this.dialogUI.classList.remove('hidden');
     }
 
     hideDialog() {
-        if (this.dialogUI) this.dialogUI.style.display = 'none';
+        if (this.dialogUI) {
+            this.dialogUI.classList.add('hidden');
+        }
     }
 
     // --- Status UI Methods ---
@@ -65,7 +68,12 @@ export class UIManager {
         const elNextExp = document.getElementById('player-next-exp');
         if (elLevel) elLevel.textContent = `${player.stats.level}`;
         if (elExp) elExp.textContent = `${player.stats.xp}`;
+        if (elExp) elExp.textContent = `${player.stats.xp}`;
         if (elNextExp) elNextExp.textContent = `${player.stats.nextXp}`;
+    }
+
+    updateMapId(id) {
+        if (this.elMapId) this.elMapId.textContent = id;
     }
 
     // --- Battle UI Methods ---

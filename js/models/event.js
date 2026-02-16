@@ -19,6 +19,11 @@ export class GameEvent {
         // One-time event?
         this.once = data.once || false;
         this.executed = false;
+
+        // Warp properties
+        this.warp_to_map = data.warp_to_map;
+        this.warp_to_x = data.warp_to_x;
+        this.warp_to_z = data.warp_to_z;
     }
 
     checkCondition(player) {
@@ -28,8 +33,6 @@ export class GameEvent {
             const flagVal = player.getFlag(this.condition.flag);
             return flagVal === this.condition.value;
         }
-
-        // Add more conditions as needed (e.g. item check, level check)
         return true;
     }
 
@@ -42,7 +45,6 @@ export class GameEvent {
         let resultMessage = this.message;
         let success = true;
 
-        // Execute specific logic based on type
         switch (this.type) {
             case 'heal':
                 player.healFull();
@@ -53,13 +55,21 @@ export class GameEvent {
                 }
                 break;
             case 'dialogue':
-                // Dialogue is handled by Game controller usually, but we can return the message
                 break;
             case 'open_door':
                 if (game && game.mapManager) {
                     game.mapManager.openDoor(this.x, this.z);
+                    // player.flashEffect(0xffffff);
                 }
                 break;
+            case 'warp':
+                return {
+                    success: true,
+                    type: 'warp',
+                    mapId: this.warp_to_map,
+                    x: this.warp_to_x,
+                    z: this.warp_to_z
+                };
             default:
                 break;
         }
