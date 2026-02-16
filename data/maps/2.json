@@ -542,6 +542,21 @@
                 "value": true
             },
             "action": null
+        },
+        {
+            "id": "ev1771260261757",
+            "type": "warp",
+            "x": 9,
+            "z": 7,
+            "trigger": "touch",
+            "warp_to_map": 1,
+            "warp_to_x": null,
+            "warp_to_z": null,
+            "message": "",
+            "message_fail": "",
+            "once": false,
+            "condition": null,
+            "action": null
         }
     ]
 }

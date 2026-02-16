@@ -109,4 +109,9 @@ export class NPC {
         const angle = Math.atan2(dx, dz);
         this.group.rotation.y = angle;
     }
+
+    // NPCの向きを調整
+    lookAtPlayer(player) {
+        this.lookAt(player.gridX, player.gridZ);
+    }
 }

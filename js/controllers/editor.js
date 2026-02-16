@@ -10,7 +10,6 @@ let state = {
 // --- 初期化 ---
 window.onload = async () => {
     await loadMapList();
-    // URL param check? or load default
     const urlParams = new URLSearchParams(window.location.search);
     const mapId = urlParams.get('id') || 1;
     await loadMap(mapId);
@@ -101,10 +100,12 @@ window.createNewMap = async () => {
 
 function setupEvents() {
     // 既存のイベント
-    document.body.onmousedown = (e) => {
+    document.addEventListener('mousedown', (e) => {
         if (e.target.closest('#grid-canvas')) state.isMouseDown = true;
-    };
-    document.body.onmouseup = () => state.isMouseDown = false;
+    });
+    document.addEventListener('mouseup', () => {
+        state.isMouseDown = false;
+    });
     document.oncontextmenu = (e) => e.preventDefault();
 
     const dirSelect = document.getElementById('map-start-dir');
@@ -116,6 +117,56 @@ function setupEvents() {
                 renderGrid(); // 🚩の向きを更新
             }
         });
+    }
+}
+
+// Add listener for type change to toggle visibility
+document.addEventListener('DOMContentLoaded', () => {
+    const typeSelect = document.getElementById('prop-ev-type');
+    const warpFields = document.getElementById('prop-warp-fields');
+
+    if (typeSelect && warpFields) {
+        typeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'warp') {
+                warpFields.classList.remove('hidden');
+            } else {
+                warpFields.classList.add('hidden');
+            }
+        });
+    }
+});
+
+// アイコンの更新 (NPC, Event, etc)
+function refreshIcons(el, x, z) {
+    el.innerHTML = ''; // Clear
+
+    // 1. Start Position
+    if (mapData.start_x === x && mapData.start_z === z) {
+        el.innerText = '🚩';
+        return;
+    }
+
+    // 2. NPC
+    const npc = mapData.npcs.find(n => Math.round(n.x) === x && Math.round(n.z) === z);
+    if (npc) {
+        el.innerText = '👤';
+        el.title = npc.name;
+        return;
+    }
+
+    // 3. Event
+    const evt = mapData.events.find(e => Math.round(e.x) === x && Math.round(e.z) === z);
+    if (evt) {
+        if (evt.type === 'open_door') {
+            el.innerText = '🚪';
+        } else if (evt.type === 'warp') {
+            el.innerText = '🌀';
+        } else if (evt.type === 'heal') {
+            el.innerText = '💖';
+        } else {
+            el.innerText = '✨';
+        }
+        return;
     }
 }
 
@@ -245,10 +296,27 @@ function addObject(x, z) {
             message: "扉が開いた！",
             message_fail: "扉は封印されている...",
             once: false,
+            message: "扉が開いた！",
+            message_fail: "扉は封印されている...",
+            once: false,
             action: null
         };
         mapData.events.push(newEv);
 
+        showProperties(newEv);
+        renderGrid();
+    } else if (!targetEntity && state.entity === 'warp') {
+        const newEv = {
+            id: 'ev' + Date.now(),
+            type: 'warp',
+            x: x,
+            z: z,
+            trigger: 'touch',
+            warp_to_map: null,
+            warp_to_x: null,
+            warp_to_z: null
+        };
+        mapData.events.push(newEv);
         showProperties(newEv);
         renderGrid();
     } else if (targetEntity) {
@@ -300,6 +368,87 @@ function showProperties(entity) {
         document.getElementById('prop-ev-msg').value = entity.message || "";
         document.getElementById('prop-ev-msg-fail').value = entity.message_fail || "";
         document.getElementById('prop-ev-once').checked = !!entity.once;
+
+        // Warp Fields
+        const warpMapInput = document.getElementById('prop-warp-map');
+        warpMapInput.value = entity.warp_to_map || "";
+        document.getElementById('prop-warp-x').value = entity.warp_to_x !== undefined && entity.warp_to_x !== null ? entity.warp_to_x : "";
+        document.getElementById('prop-warp-z').value = entity.warp_to_z !== undefined && entity.warp_to_z !== null ? entity.warp_to_z : "";
+
+        // Setup Target Helper
+        const targetSelect = document.getElementById('prop-warp-target-event');
+        targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
+
+        // Listeners for helper
+        warpMapInput.onchange = async () => {
+            const tid = warpMapInput.value;
+            if (tid) await loadTargetMapEvents(tid, targetSelect);
+        };
+
+        targetSelect.onchange = () => {
+            const data = targetSelect.value;
+            if (data) {
+                const [tx, tz] = data.split(',').map(Number);
+                document.getElementById('prop-warp-x').value = tx;
+                document.getElementById('prop-warp-z').value = tz;
+            }
+        };
+
+        if (entity.warp_to_map) {
+            loadTargetMapEvents(entity.warp_to_map, targetSelect);
+        }
+
+        // Toggle Warp Fields Visibility
+        const warpFields = document.getElementById('prop-warp-fields');
+        if (entity.type === 'warp') {
+            warpFields.classList.remove('hidden');
+        } else {
+            warpFields.classList.add('hidden');
+        }
+    }
+}
+
+// Helper to load events from another map
+async function loadTargetMapEvents(mapId, selectEl) {
+    try {
+        const res = await fetch(`api/get_map.php?id=${mapId}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const tMap = json.data.map;
+
+        selectEl.innerHTML = '<option value="">-- Select Target --</option>';
+
+        // Find suitable targets (Doors or Warps)
+        const targets = tMap.events.filter(e => e.type === 'open_door' || e.type === 'warp');
+
+        targets.forEach(t => {
+            let safeX = t.x;
+            let safeZ = t.z;
+
+            const neighbors = [
+                { dx: 0, dz: 1 }, { dx: 0, dz: -1 }, { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
+            ];
+
+            for (let n of neighbors) {
+                const nx = t.x + n.dx;
+                const nz = t.z + n.dz;
+                if (nx >= 0 && nx < tMap.width && nz >= 0 && nz < tMap.height) {
+                    if (tMap.tiles[nz][nx] === 0) {
+                        safeX = nx;
+                        safeZ = nz;
+                        break;
+                    }
+                }
+            }
+
+            const opt = document.createElement('option');
+            opt.value = `${safeX},${safeZ}`;
+            opt.textContent = `${t.type} at (${t.x}, ${t.z}) -> Spawn (${safeX}, ${safeZ})`;
+            selectEl.appendChild(opt);
+        });
+
+    } catch (e) {
+        console.error("Failed to load target map events", e);
     }
 }
 
@@ -342,6 +491,15 @@ window.applyProperties = () => {
         } else {
             selectedEntity.action = null;
         }
+
+        // Warp Fields
+        const wMap = document.getElementById('prop-warp-map').value;
+        const wX = document.getElementById('prop-warp-x').value;
+        const wZ = document.getElementById('prop-warp-z').value;
+
+        selectedEntity.warp_to_map = wMap ? parseInt(wMap) : null;
+        selectedEntity.warp_to_x = wX ? parseInt(wX) : null;
+        selectedEntity.warp_to_z = wZ ? parseInt(wZ) : null;
     }
 
     // 変更を保存
@@ -369,37 +527,8 @@ function removeObject(x, z) {
     }
 }
 
-function refreshIcons(el, x, z) {
-    const isPlayerStart = (mapData.start_x === x && mapData.start_z === z);
-    const npc = mapData.npcs.find(n => Math.round(n.x) === x && Math.round(n.z) === z);
-    const ev = mapData.events.find(ev => Math.round(ev.x) === x && Math.round(ev.z) === z);
 
-    el.classList.remove('icon-npc', 'icon-event', 'icon-player', 'selected-entity');
 
-    if (isPlayerStart) el.classList.add('icon-player');
-
-    if (npc) {
-        el.classList.add('icon-npc');
-        if (selectedEntity && selectedEntity.id === npc.id) el.classList.add('selected-entity');
-    }
-
-    if (ev) {
-        el.classList.add('icon-event');
-        if (ev.type === 'open_door') {
-            el.classList.remove('icon-event');
-            el.classList.add('icon-door');
-            el.innerText = '🚪';
-        } else if (ev.type === 'warp') {
-            el.classList.remove('icon-event');
-            el.classList.add('icon-warp'); // You can add CSS for this class if needed 
-            el.innerText = '🌀';
-        } else if (ev.type === 'heal') {
-            el.classList.remove('icon-event');
-            el.innerText = '💖';
-        }
-        if (selectedEntity && selectedEntity.id === ev.id) el.classList.add('selected-entity');
-    }
-}
 
 // --- UI操作用 (windowに公開) ---
 window.setMode = (m) => {

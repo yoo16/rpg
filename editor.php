@@ -79,6 +79,9 @@
                 <button onclick="setEntity('door')" id="btn-ent-door" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
                     🚪 Door
                 </button>
+                <button onclick="setEntity('warp')" id="btn-ent-warp" class="brush-btn flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition text-sm w-full">
+                    🌀 Warp
+                </button>
             </div>
         </section>
         <div class="mt-auto pt-6 border-t border-slate-700">
@@ -132,6 +135,7 @@
                     <option value="open_door">Open Door (扉を開ける)</option>
                     <option value="dialogue">Dialogue (会話のみ)</option>
                     <option value="set_flag">Set Flag (フラグセット)</option>
+                    <option value="warp">Warp (移動)</option>
                 </select>
             </div>
             <div>
@@ -161,6 +165,33 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Warp Destination Fields -->
+            <div id="prop-warp-fields" class="space-y-4 border-t border-slate-700 pt-4">
+                <label class="text-xs font-bold text-emerald-400">Warp Destination (Optional)</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-[10px] text-slate-400">Map ID</label>
+                        <input type="number" id="prop-warp-map" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Next">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400">X</label>
+                        <input type="number" id="prop-warp-x" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Def">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400">Z</label>
+                        <input type="number" id="prop-warp-z" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Def">
+                    </div>
+                </div>
+                <!-- Target Helper -->
+                <div class="mt-2">
+                    <label class="text-[10px] text-slate-400">Target Event (Auto-set X/Z)</label>
+                    <select id="prop-warp-target-event" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                        <option value="">-- Select Target --</option>
+                    </select>
+                </div>
+            </div>
+
             <div>
                 <label class="text-xs text-slate-400">Messages</label>
                 <textarea id="prop-ev-msg" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Success Message"></textarea>

@@ -36,7 +36,7 @@ export class DialogManager {
 
         // Turn NPC to player
         if (this.mapManager) {
-            this.mapManager.lookAtPlayer(npc.id, this.player.gridX, this.player.gridZ);
+            npc.lookAtPlayer(this.player);
         }
 
         // Camera focus

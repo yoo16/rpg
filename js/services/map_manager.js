@@ -73,13 +73,6 @@ export class MapManager {
         return this.npcs.find(npc => npc.x === tx && npc.z === tz);
     }
 
-    lookAtPlayer(npcId, playerGridX, playerGridZ) {
-        const npc = this.npcs.find(n => n.id === npcId);
-        if (npc) {
-            npc.lookAt(playerGridX, playerGridZ);
-        }
-    }
-
     // イベント判定
     getEventAt(x, z) {
         if (!this.mapData || !this.mapData.events) return null;
@@ -279,42 +272,24 @@ export class MapManager {
             }
         });
 
+        // メッシュを削除
         toRemove.forEach(mesh => {
             this.group.remove(mesh);
             if (mesh.geometry) mesh.geometry.dispose();
-            // Remove from mapMeshes array
             const idx = this.mapMeshes.indexOf(mesh);
             if (idx > -1) this.mapMeshes.splice(idx, 1);
         });
 
-        // Allow passage
+        // 通行可能にする
         if (this.mapData.tiles[z] && this.mapData.tiles[z][x] !== undefined) {
-            this.mapData.tiles[z][x] = 0; // 0 = Walkable (Floor)
+            this.mapData.tiles[z][x] = 0;
         }
 
-        // Ensure floor exists underneath
-        this.createFloor(worldX, worldZ);
+        // 床を再作成
+        // Create Warp Event
+        // DEPRECATED: Door events no longer create warp events automatically.
+        // Players must place a separate 'warp' event to handle transitions.
 
-        const nextMapId = (this.mapData.id || 1) + 1; // Default to next map
-
-        const warpEvent = new GameEvent({
-            id: `warp_${x}_${z}`,
-            type: 'warp',
-            x: x,
-            z: z,
-            trigger: 'touch', // Step on it to warp
-            warp_to_map: nextMapId,
-            warp_to_x: null, // Use map default start_x
-            warp_to_z: null  // Use map default start_z
-        });
-
-        // Remove existing event at this location (the door event)
-        const oldEventIdx = this.mapData.events.findIndex(e => e.x === x && e.z === z);
-        if (oldEventIdx > -1) {
-            this.mapData.events.splice(oldEventIdx, 1);
-        }
-
-        this.mapData.events.push(warpEvent);
-        console.log(`Door opened at ${x},${z}. Warp event created to Map ${nextMapId}`);
+        console.log(`Door opened at ${x},${z}.`);
     }
 }
