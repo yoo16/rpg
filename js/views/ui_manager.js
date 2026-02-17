@@ -35,11 +35,10 @@ export class UIManager {
         }
     }
 
-    async fadeIn(duration = 500) {
+    async fadeIn(duration = 1000) {
         if (!this.loadingUI) return;
 
         this.loadingUI.style.display = 'flex';
-        // Force reflow
         this.loadingUI.offsetHeight;
 
         this.loadingUI.style.transition = `opacity ${duration}ms`;
@@ -49,7 +48,7 @@ export class UIManager {
         return new Promise(resolve => setTimeout(resolve, duration));
     }
 
-    async fadeOut(duration = 500) {
+    async fadeOut(duration = 1000) {
         if (!this.loadingUI) return;
 
         this.loadingUI.style.transition = `opacity ${duration}ms`;

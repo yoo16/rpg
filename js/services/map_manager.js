@@ -234,16 +234,24 @@ export class MapManager {
             for (let x = 0; x < width; x++) {
                 const worldX = x * TILE_SIZE;
                 const worldZ = z * TILE_SIZE;
+
+                // Check for warp event
+                const event = this.getEventAt(x, z);
+                const isWarp = event && event.type === 'warp';
+
                 if (tiles[z][x] === 1) {
                     // Check for door event
-                    const event = this.getEventAt(x, z);
                     const isDoor = event && event.type === 'open_door';
 
                     if (isDoor) {
                         if (event.executed) {
                             // Already open: Treat as floor
                             this.mapData.tiles[z][x] = 0;
-                            this.createFloor(worldX, worldZ);
+                            if (isWarp) {
+                                this.createWarpTile(worldX, worldZ);
+                            } else {
+                                this.createFloor(worldX, worldZ);
+                            }
                             this.createCeiling(worldX, worldZ);
                         } else {
                             this.createDoor(worldX, worldZ, x, z);
@@ -255,7 +263,11 @@ export class MapManager {
                     this.createWater(worldX, worldZ);
                     this.createCeiling(worldX, worldZ);
                 } else {
-                    this.createFloor(worldX, worldZ);
+                    if (isWarp) {
+                        this.createWarpTile(worldX, worldZ);
+                    } else {
+                        this.createFloor(worldX, worldZ);
+                    }
                     this.createCeiling(worldX, worldZ);
                 }
             }
@@ -286,6 +298,18 @@ export class MapManager {
     createFloor(x, z) {
         const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
         const material = new THREE.MeshLambertMaterial({ map: this.floorTexture, color: 0x888888 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(x, 0, z);
+        mesh.receiveShadow = true;
+        this.group.add(mesh);
+        this.mapMeshes.push(mesh);
+    }
+
+    // ワープタイルの作成 (紫色)
+    createWarpTile(x, z) {
+        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+        const material = new THREE.MeshLambertMaterial({ map: this.floorTexture, color: 0xaa00ff, emissive: 0x330055, emissiveIntensity: 0.5 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2;
         mesh.position.set(x, 0, z);

@@ -479,19 +479,19 @@
             "x": 17,
             "z": 4,
             "idle_url": "assets\/fbx\/characters\/character2_idle.fbx",
-            "scale": 0.01,
+            "scale": 0.009,
             "dialogues": [
                 "このダンジョンから帰りたい...",
-                "この鍵をやるから、助けてくれ..."
+                "この鍵わたすから、助けてください..."
             ],
             "on_talk": {
                 "type": "set_flag",
-                "action": {
-                    "key": "has_key",
-                    "value": true
-                },
                 "message": "鍵を手に入れた！",
-                "once": true
+                "once": true,
+                "action": {
+                    "key": "key1",
+                    "value": true
+                }
             }
         },
         {
@@ -539,13 +539,16 @@
             "z": 2,
             "trigger": "action",
             "condition": {
-                "flag": "has_key",
+                "flag": "key1",
                 "value": true
             },
             "message": "扉が開いた！",
             "message_fail": "扉は封印されている...",
-            "once": false,
-            "action": null
+            "once": true,
+            "action": null,
+            "warp_to_map": null,
+            "warp_to_x": null,
+            "warp_to_z": null
         },
         {
             "id": "ev_warp_17_0",

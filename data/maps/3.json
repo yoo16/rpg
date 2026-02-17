@@ -458,9 +458,14 @@
             "x": 8,
             "z": 0,
             "trigger": "touch",
-            "warp_to_map": null,
-            "warp_to_x": null,
-            "warp_to_z": null
+            "warp_to_map": 2,
+            "warp_to_x": 8,
+            "warp_to_z": 16,
+            "message": "",
+            "message_fail": "",
+            "once": false,
+            "condition": null,
+            "action": null
         }
     ],
     "start_x": 8,

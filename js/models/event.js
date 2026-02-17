@@ -1,7 +1,8 @@
 export class GameEvent {
     constructor(data) {
         this.id = data.id;
-        this.type = data.type; // 'heal', 'dialogue', 'item', 'set_flag', 'warp'
+        // 'heal', 'set_flag',  'dialogue', 'open_door', 'warp'
+        this.type = data.type;
         this.x = data.x;
         this.z = data.z;
         this.message = data.message;
@@ -45,25 +46,16 @@ export class GameEvent {
                 player.healFull();
                 break;
             case 'set_flag':
-                if (this.action && this.action.key) {
-                    player.setFlag(this.action.key, this.action.value);
-                }
+                console.log("Setting Flag:", this.action);
+                player.setFlag(this.action?.key, this.action?.value);
                 break;
             case 'dialogue':
                 break;
             case 'open_door':
-                if (game && game.mapManager) {
-                    game.mapManager.openDoor(this.x, this.z);
-                }
+                game?.mapManager?.openDoor(this.x, this.z);
                 break;
             case 'warp':
-                return {
-                    success: true,
-                    type: 'warp',
-                    mapId: this.warp_to_map,
-                    x: this.warp_to_x,
-                    z: this.warp_to_z
-                };
+                game?.mapManager?.warp(this.warp_to_map, this.warp_to_x, this.warp_to_z);
             default:
                 break;
         }

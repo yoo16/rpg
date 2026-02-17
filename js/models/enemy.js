@@ -172,7 +172,7 @@ export class Enemy {
         const start = Date.now();
         const initialOpacities = new Map();
 
-        // 1. Enable transparency and store initial opacity
+        // 1. 透明度を有効にして初期不透明度を保存
         this.group.traverse((child) => {
             if (child.isMesh && child.material) {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
@@ -185,7 +185,7 @@ export class Enemy {
             }
         });
 
-        // 2. Animate opacity
+        // 2. 不透明度のアニメーション
         return new Promise(resolve => {
             const animate = () => {
                 const elapsed = Date.now() - start;

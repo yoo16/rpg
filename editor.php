@@ -31,6 +31,9 @@
 
         <section>
             <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Edit Mode</h2>
+            <div id="selected-coords" class="mb-2 text-center text-sm font-mono text-cyan-400 font-bold bg-slate-900 p-2 rounded border border-slate-700">
+                ( -, - )
+            </div>
             <div class="flex bg-slate-900 p-1 rounded-lg">
                 <button onclick="setMode('tile')" id="mode-tile" class="flex-1 py-1.5 text-xs rounded-md transition active-mode">Tiles</button>
                 <button onclick="setMode('entity')" id="mode-entity" class="flex-1 py-1.5 text-xs rounded-md transition text-slate-400 hover:text-white">Entities</button>
@@ -96,12 +99,12 @@
     </main>
 
     <aside id="properties-panel" class="w-80 bg-slate-800 border-l border-slate-700 p-6 overflow-y-auto hidden">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-2">
             <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Properties</h2>
             <button onclick="document.getElementById('properties-panel').classList.add('hidden')" class="text-slate-500 hover:text-white text-lg">&times;</button>
         </div>
 
-        <div id="prop-npc-fields" class="space-y-4">
+        <div id="prop-npc-fields" class="space-y-2">
             <div>
                 <label class="text-xs text-slate-400">Name</label>
                 <input type="text" id="prop-name" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none">
@@ -124,6 +127,44 @@
                 <label class="text-xs text-slate-400">Dialogues / Message</label>
                 <textarea id="prop-dialog" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm mt-1 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="NPCの台詞またはイベントメッセージ"></textarea>
             </div>
+
+            <!-- On Talk Event -->
+            <div class="border-t border-slate-700 pt-2 mt-2">
+                <label class="text-xs font-bold text-emerald-400 mb-2 block">On Talk Event (Optional)</label>
+
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-[10px] text-slate-400">Type</label>
+                        <select id="prop-npc-ev-type" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:border-blue-500">
+                            <option value="">None</option>
+                            <option value="set_flag">Set Flag</option>
+                            <option value="heal">Heal</option>
+                        </select>
+                    </div>
+
+                    <div id="prop-npc-ev-action" class="hidden">
+                        <label class="text-[10px] text-slate-400">Action (Key / Value)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="prop-npc-ev-key" placeholder="Key" class="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-xs outline-none focus:border-blue-500">
+                            <select id="prop-npc-ev-val" class="w-16 bg-slate-900 border border-slate-700 rounded p-2 text-xs outline-none focus:border-blue-500">
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] text-slate-400">Message after event</label>
+                        <input type="text" id="prop-npc-ev-msg" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs outline-none focus:border-blue-500" placeholder="鍵を手に入れた！">
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="prop-npc-ev-once" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500 relative cursor-pointer">
+                        <label for="prop-npc-ev-once" class="text-[10px] text-slate-400 cursor-pointer">Execute Once</label>
+                    </div>
+                </div>
+            </div>
+
             <button onclick="applyProperties()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-colors">Apply Changes</button>
         </div>
 
@@ -167,8 +208,8 @@
             </div>
 
             <!-- Warp Destination Fields -->
-            <div id="prop-warp-fields" class="space-y-4 border-t border-slate-700 pt-4">
-                <label class="text-xs font-bold text-emerald-400">Warp Destination (Optional)</label>
+            <div id="prop-warp-fields" class="space-y-2 border-t border-slate-700 pt-4">
+                <label class="text-xs font-bold text-emerald-400">Warp Destination</label>
                 <div class="grid grid-cols-3 gap-2">
                     <div>
                         <label class="text-[10px] text-slate-400">Map ID</label>

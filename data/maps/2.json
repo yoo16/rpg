@@ -499,21 +499,6 @@
             "action": null
         },
         {
-            "id": "ev1771255213318",
-            "type": "set_flag",
-            "x": 3,
-            "z": 16,
-            "message": "鍵をみつけた！",
-            "trigger": "action",
-            "message_fail": "",
-            "once": false,
-            "condition": {
-                "flag": "has_key",
-                "value": true
-            },
-            "action": null
-        },
-        {
             "id": "ev1771260261757",
             "type": "warp",
             "x": 9,
@@ -535,13 +520,49 @@
             "z": 16,
             "trigger": "touch",
             "warp_to_map": 3,
-            "warp_to_x": 3,
-            "warp_to_z": 3,
+            "warp_to_x": 8,
+            "warp_to_z": 1,
             "message": "",
             "message_fail": "",
             "once": false,
             "condition": null,
             "action": null
+        },
+        {
+            "id": "ev1771304397501",
+            "type": "set_flag",
+            "x": 9,
+            "z": 7,
+            "message": "鍵を発見した！",
+            "trigger": "action",
+            "message_fail": "",
+            "once": true,
+            "condition": null,
+            "action": {
+                "key": "key2",
+                "value": true
+            },
+            "warp_to_map": null,
+            "warp_to_x": null,
+            "warp_to_z": null
+        },
+        {
+            "id": "ev1771304500204",
+            "type": "open_door",
+            "x": 9,
+            "z": 13,
+            "trigger": "action",
+            "condition": {
+                "flag": "key2",
+                "value": true
+            },
+            "message": "扉が開いた！",
+            "message_fail": "扉は封印されている...",
+            "once": false,
+            "action": null,
+            "warp_to_map": null,
+            "warp_to_x": null,
+            "warp_to_z": null
         }
     ]
 }

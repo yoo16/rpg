@@ -134,6 +134,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const npcEvType = document.getElementById('prop-npc-ev-type');
+    const npcEvAction = document.getElementById('prop-npc-ev-action');
+    if (npcEvType && npcEvAction) {
+        npcEvType.addEventListener('change', (e) => {
+            if (e.target.value === 'set_flag') {
+                npcEvAction.classList.remove('hidden');
+            } else {
+                npcEvAction.classList.add('hidden');
+            }
+        });
+    }
 });
 
 // アイコンの更新 (NPC, Event, etc)
@@ -196,6 +208,10 @@ function renderGrid() {
 
 // --- アクション制御 ---
 function handleAction(e, x, z, el) {
+    // Update Coords Display
+    const coordEl = document.getElementById('selected-coords');
+    if (coordEl) coordEl.textContent = `( ${x}, ${z} )`;
+
     // 右クリック(2) または Ctrl+クリックの場合：削除実行
     if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
         e.preventDefault();
@@ -346,6 +362,20 @@ function showProperties(entity) {
         document.getElementById('prop-model').value = entity.idle_url || "";
         document.getElementById('prop-scale').value = entity.scale || 0.01;
         document.getElementById('prop-dialog').value = (entity.dialogues || []).join('\n');
+
+        // On Talk
+        const onTalk = entity.on_talk || {};
+        const typeSelect = document.getElementById('prop-npc-ev-type');
+        typeSelect.value = onTalk.type || "";
+
+        const npcEvAction = document.getElementById('prop-npc-ev-action');
+        if (onTalk.type === 'set_flag') npcEvAction.classList.remove('hidden');
+        else npcEvAction.classList.add('hidden');
+
+        document.getElementById('prop-npc-ev-key').value = onTalk.action ? onTalk.action.key : "";
+        document.getElementById('prop-npc-ev-val').value = onTalk.action ? String(onTalk.action.value) : "true";
+        document.getElementById('prop-npc-ev-msg').value = onTalk.message || "";
+        document.getElementById('prop-npc-ev-once').checked = !!onTalk.once;
     } else {
         npcFields.classList.add('hidden');
         eventFields.classList.remove('hidden');
@@ -462,6 +492,24 @@ window.applyProperties = () => {
         selectedEntity.idle_url = document.getElementById('prop-model').value;
         selectedEntity.scale = parseFloat(document.getElementById('prop-scale').value);
         selectedEntity.dialogues = document.getElementById('prop-dialog').value.split('\n').filter(line => line.trim() !== "");
+
+        // On Talk
+        const otType = document.getElementById('prop-npc-ev-type').value;
+        if (otType) {
+            selectedEntity.on_talk = {
+                type: otType,
+                message: document.getElementById('prop-npc-ev-msg').value,
+                once: document.getElementById('prop-npc-ev-once').checked
+            };
+            if (otType === 'set_flag') {
+                selectedEntity.on_talk.action = {
+                    key: document.getElementById('prop-npc-ev-key').value,
+                    value: document.getElementById('prop-npc-ev-val').value === 'true'
+                };
+            }
+        } else {
+            delete selectedEntity.on_talk;
+        }
     } else {
         // イベントの更新
         selectedEntity.type = document.getElementById('prop-ev-type').value;
