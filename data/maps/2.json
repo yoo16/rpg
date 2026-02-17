@@ -517,7 +517,7 @@
             "id": "ev1771260261757",
             "type": "warp",
             "x": 9,
-            "z": 8,
+            "z": 0,
             "trigger": "touch",
             "warp_to_map": 1,
             "warp_to_x": 16,

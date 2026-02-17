@@ -29,10 +29,10 @@
     <div id="game-container" class="relative w-screen h-screen overflow-hidden">
 
         <!-- Loading UI -->
-        <div id="loading-ui" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[1000]">
+        <div id="loading-ui" class="fixed inset-0 bg-black flex items-center justify-center z-[1000] transition-opacity duration-500 opacity-0 pointer-events-none">
             <div class="text-center">
                 <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4 animate-spin"></div>
-                <p>🎮 データを読み込み中...</p>
+                <p>Loading...</p>
             </div>
         </div>
 
@@ -79,12 +79,11 @@
                 <p>Map: <span id="map-id">1</span></p>
                 <p>Pos: (<span id="pos-x">0</span>, <span id="pos-z">0</span>)</p>
                 <p>Lv.<span id="player-level" class="text-white">1</span></p>
-                <p>EXP: <span id="player-exp">0</span></p>
-                <p>Next: <span id="player-next-exp">0</span></p>
-
                 <div class="w-full h-5 bg-white/60 rounded relative overflow-hidden">
                     <div id="player-hp-bar" class="h-full bg-safe w-full transition-all duration-300"></div>
                 </div>
+                <p>EXP: <span id="player-exp">0</span></p>
+                <p>Next: <span id="player-next-exp">0</span></p>
                 <span id="player-hp-text" class="text-right block"></span>
 
                 <?php if (true): ?>

@@ -4,9 +4,11 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE } from '../constants.js';
 import { NPC } from '../models/npc.js';
 import { GameEvent } from '../models/event.js';
+import GameApi from './api.js';
 
 export class MapManager {
-    constructor() {
+    constructor(game) {
+        this.game = game;
         this.group = new THREE.Group();
         this.mapData = null;
         this.mapMeshes = [];
@@ -51,6 +53,65 @@ export class MapManager {
 
         // マップの作成
         this.createMap();
+    }
+
+    async warp(mapId, startX, startZ) {
+        console.log(`MapManager: Warping to Map ${mapId}...`);
+
+        // アクセス UI と Game State via this.game
+        this.game.uiManager.showLoading();
+        this.game.isRunning = false;
+
+        try {
+            // 1. Save current map ID for return warp lookup
+            const previousMapId = this.mapData ? this.mapData.map_id : null;
+
+            // 2. Fetch Map Data
+            const mRes = await GameApi.getMapData(mapId);
+
+            // 3. Initialize Map (Loads textures, events, restores state)
+            this.init(mRes.data.map, this.game.globalEventState);
+            this.game.uiManager.updateMapId(mapId);
+
+            // 4. Calculate Spawn Position
+            const spawnPos = this.getSpawnPosition(previousMapId, startX, startZ);
+
+            console.log(`Final Spawn Position: (${spawnPos.x}, ${spawnPos.z})`);
+
+            // 5. Update Player Position
+            const player = this.game.player;
+            if (player) {
+                player.gridX = spawnPos.x;
+                player.gridZ = spawnPos.z;
+                player.rotationTarget = spawnPos.dir;
+
+                // Reset movement state to prevent ghost movement
+                player.isMoving = false;
+                player.targetPosition = null;
+                player.isRotating = false;
+
+                player.updatePlayerPosition();
+                if (player.mesh) player.mesh.rotation.y = player.rotationTarget;
+            }
+
+            // 6. Create NPCs (Async)
+            await this.createNPCs();
+
+            // 7. Reset Camera
+            if (this.game.cameraManager && player) {
+                this.game.cameraManager.snapToPlayer(player);
+            }
+
+            // 8. Resume Game Loop
+            this.game.isRunning = true;
+            this.game.startGameLoop();
+
+        } catch (e) {
+            console.error("Warp failed:", e);
+            this.game.uiManager.showLoadingError("Map Load Failed");
+        } finally {
+            this.game.uiManager.hideLoading();
+        }
     }
 
     async createNPCs() {
@@ -125,6 +186,44 @@ export class MapManager {
             }
         }
         return false;
+    }
+
+    // スポーン位置の決定
+    getSpawnPosition(previousMapId, preferredX, preferredZ) {
+        let destX = preferredX;
+        let destZ = preferredZ;
+        let destDir = this.mapData.start_dir || 0;
+
+        // 座標指定がない場合、戻り先のワープイベントを探す (Warp Source Priority)
+        if (typeof destX !== 'number' || typeof destZ !== 'number') {
+            if (previousMapId) {
+                console.log(`Searching for return warp to Map ${previousMapId} in Map ${this.mapData.map_id}...`);
+
+                // 新しいマップの中から「前のマップへのワープ」を探す
+                const returnWarp = this.getEventByWarpDestination(previousMapId);
+
+                if (returnWarp) {
+                    console.log(`✅ Found return warp at (${returnWarp.x}, ${returnWarp.z})`);
+                    destX = returnWarp.x;
+                    destZ = returnWarp.z;
+                } else {
+                    console.warn(`⚠️ No return warp found to Map ${previousMapId}.`);
+                }
+            }
+
+            // それでも見つからなければマップの初期位置
+            if (typeof destX !== 'number') destX = this.mapData.start_x || 1;
+            if (typeof destZ !== 'number') destZ = this.mapData.start_z || 1;
+        }
+
+        return { x: destX, z: destZ, dir: destDir };
+    }
+
+    // ワープ先マップIDからイベントを検索
+    getEventByWarpDestination(targetMapId) {
+        if (!this.mapData || !this.mapData.events) return null;
+        // Loose equality for robust matching
+        return this.mapData.events.find(ev => ev.type === 'warp' && ev.warp_to_map == targetMapId);
     }
 
     // マップの作成

@@ -99,4 +99,22 @@ export class CameraManager {
     setZoom(isZoomed) {
         this.isZoomed = isZoomed;
     }
+
+    snapToPlayer(player) {
+        if (!player || !player.mesh) return;
+
+        const playerPos = player.mesh.position.clone();
+        const lookAtTarget = playerPos.clone().add(new THREE.Vector3(0, 1.5, 0));
+
+        const playerRotation = player.mesh.quaternion.clone();
+        const offset = new THREE.Vector3(this.defaultOffset.x, this.defaultOffset.y, this.defaultOffset.z);
+        offset.applyQuaternion(playerRotation);
+
+        const targetPos = playerPos.clone().add(offset);
+
+        this.camera.position.copy(targetPos);
+        this.camera.lookAt(lookAtTarget);
+
+        this.isOpening = false;
+    }
 }

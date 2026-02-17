@@ -1,4 +1,5 @@
 export class UIManager {
+
     constructor() {
         this.dialogUI = document.getElementById('dialog-ui');
         this.dialogText = document.getElementById('dialog-text');
@@ -11,17 +12,51 @@ export class UIManager {
         this.elPlayerName = document.getElementById('player-name');
         this.elPlayerHpBar = document.getElementById('player-hp-bar');
         this.elPlayerHpText = document.getElementById('player-hp-text');
+        this.elLevel = document.getElementById('player-level');
+        this.elExp = document.getElementById('player-exp');
+        this.elNextExp = document.getElementById('player-next-exp');
         this.elPosX = document.getElementById('pos-x');
         this.elPosZ = document.getElementById('pos-z');
         this.elMapId = document.getElementById('map-id');
     }
 
     showLoading() {
-        if (this.loadingUI) this.loadingUI.style.display = 'flex';
+        if (this.loadingUI) {
+            this.loadingUI.style.display = 'flex';
+            this.loadingUI.style.opacity = '1';
+            this.loadingUI.style.pointerEvents = 'auto';
+        }
     }
 
     hideLoading() {
-        if (this.loadingUI) this.loadingUI.style.display = 'none';
+        if (this.loadingUI) {
+            this.loadingUI.style.opacity = '0';
+            this.loadingUI.style.pointerEvents = 'none';
+        }
+    }
+
+    async fadeIn(duration = 500) {
+        if (!this.loadingUI) return;
+
+        this.loadingUI.style.display = 'flex';
+        // Force reflow
+        this.loadingUI.offsetHeight;
+
+        this.loadingUI.style.transition = `opacity ${duration}ms`;
+        this.loadingUI.style.opacity = '1';
+        this.loadingUI.style.pointerEvents = 'auto';
+
+        return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
+    async fadeOut(duration = 500) {
+        if (!this.loadingUI) return;
+
+        this.loadingUI.style.transition = `opacity ${duration}ms`;
+        this.loadingUI.style.opacity = '0';
+        this.loadingUI.style.pointerEvents = 'none';
+
+        return new Promise(resolve => setTimeout(resolve, duration));
     }
 
     showLoadingError(msg) {
@@ -55,7 +90,6 @@ export class UIManager {
         const pPercent = player.hpPercent;
         if (this.elPlayerHpBar) {
             this.elPlayerHpBar.style.width = `${pPercent}%`;
-            // Tailwind colors: safe=#1931ec, danger=#ff6666, caution (yellow-500)=#eab308
             const color = pPercent < 20 ? '#ff6666' : pPercent < 50 ? '#eab308' : '#1931ec';
             this.elPlayerHpBar.style.backgroundColor = color;
         }
@@ -63,20 +97,15 @@ export class UIManager {
             this.elPlayerHpText.textContent = `${Math.floor(player.stats.hp)} / ${player.stats.maxHp}`;
         }
 
-        const elLevel = document.getElementById('player-level');
-        const elExp = document.getElementById('player-exp');
-        const elNextExp = document.getElementById('player-next-exp');
-        if (elLevel) elLevel.textContent = `${player.stats.level}`;
-        if (elExp) elExp.textContent = `${player.stats.xp}`;
-        if (elExp) elExp.textContent = `${player.stats.xp}`;
-        if (elNextExp) elNextExp.textContent = `${player.stats.nextXp}`;
+        if (this.elLevel) this.elLevel.textContent = `${player.stats.level}`;
+        if (this.elExp) this.elExp.textContent = `${player.stats.xp}`;
+        if (this.elNextExp) this.elNextExp.textContent = `${player.stats.nextXp}`;
     }
 
     updateMapId(id) {
         if (this.elMapId) this.elMapId.textContent = id;
     }
 
-    // --- Battle UI Methods ---
     showBattleUI() {
         if (this.battleUI) this.battleUI.style.display = 'block';
     }
@@ -95,9 +124,6 @@ export class UIManager {
     }
 
     toggleBattleButtons(enabled) {
-        // Deprecated or can be kept for enabling/disabling if needed, 
-        // but new requirement prefers hiding.
-        // For backwards compatibility or if we want to just disable without hiding:
         const btnAttack = document.getElementById('btn-attack');
         const btnRun = document.getElementById('btn-run');
         if (btnAttack) btnAttack.disabled = !enabled;

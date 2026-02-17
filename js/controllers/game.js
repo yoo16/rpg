@@ -12,10 +12,10 @@ import { STATE } from '../constants.js';
 
 export class Game {
     constructor() {
+        this.container = document.getElementById('canvas-container');
         this.uiManager = new UIManager();
         this.inputManager = new InputManager();
-        this.mapManager = new MapManager();
-        // Encounter callback passes to Player
+        this.mapManager = new MapManager(this);
         this.player = new Player(this.mapManager, () => this.checkEncounter());
 
         this.cameraManager = null;
@@ -104,28 +104,35 @@ export class Game {
     }
 
     setupThreeJS() {
-        const container = document.getElementById('canvas-container');
+        // シーン
         this.scene = new THREE.Scene();
+        // カメラ
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
-
+        // カメラマネージャー
         this.cameraManager = new CameraManager(this.camera);
-
+        // レンダラー
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.outputEncoding = THREE.sRGBEncoding;
-        container.appendChild(this.renderer.domElement);
+        this.container.appendChild(this.renderer.domElement);
 
+        // ワールドグループ
         this.worldGroup = new THREE.Group();
+        // バトルグループ
         this.battleGroup = new THREE.Group();
         this.battleGroup.visible = false; // Hide initially directly
+
+        // シーンにグループを追加
         this.scene.add(this.worldGroup, this.battleGroup);
 
+        // 環境光
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+        // 平行光
         const dl = new THREE.DirectionalLight(0xffffff, 0.8);
         dl.position.set(5, 10, 7);
         this.scene.add(dl);
-
+        // リサイズイベント
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
@@ -133,16 +140,20 @@ export class Game {
         if ((e.key === ' ' || e.key === 'Enter')) {
             e.preventDefault();
             if (this.currentState === STATE.BATTLE && this.battleSystem) {
+                // バトル中のキー入力
                 this.battleSystem.onKeyDown(e.key);
             } else if (this.dialogManager.isActive) {
+                // ダイアログ中のキー入力
                 this.dialogManager.advance();
             } else if (this.currentState === STATE.MAP) {
+                // マップ中のキー入力
                 this.checkInteraction();
             }
         }
     }
 
     handleInput() {
+        // 移動中、回転中、ダイアログ中、マップ中でない場合は何もしない
         if (this.player.isMoving || this.player.isRotating || this.dialogManager.isActive || this.currentState !== STATE.MAP) return;
 
         const keys = this.inputManager.keys;
@@ -157,24 +168,25 @@ export class Game {
         }
     }
 
+    // ゲームループ
     update(delta) {
         if (this.currentState === STATE.MAP) {
+            // 移動終了チェック
             const movementFinished = this.player.updateMovement(delta);
             if (movementFinished) {
                 this.checkTileEvent();
             }
+            // キー入力処理
             this.handleInput();
             if (!this.dialogManager.isActive) this.checkNPCProximity();
 
-            // Check for Action Input (Space/Enter)
-            // if (this.inputManager.isActionPressed()) {
-            //     this.handleAction();
-            // }
-
+            // プレイヤーアニメーション更新
             this.player.updateAnimation(delta);
+
+            // マップアニメーション更新
             this.mapManager.update(delta);
 
-            // Update Camera
+            // カメラ更新
             this.cameraManager.update(
                 delta,
                 this.player,
@@ -306,9 +318,13 @@ export class Game {
     // ゲームループ
     startGameLoop() {
         if (!this.isRunning) return;
+        // 前回のフレームからの経過時間を取得
         const delta = this.clock.getDelta();
+        // 更新
         this.update(delta);
+        // レンダリング
         this.render();
+        // 次のフレームをリクエスト
         requestAnimationFrame(this.startGameLoop);
     }
 
@@ -325,78 +341,8 @@ export class Game {
                 this.dialogManager.show(null, result.message);
             }
             if (result.type === 'warp') {
-                this.warpToMap(result.mapId, result.x, result.z);
+                this.mapManager.warp(result.mapId, result.x, result.z);
             }
-        }
-    }
-
-    // マップ遷移
-    async warpToMap(mapId, startX, startZ) {
-        console.log(`Warping to Map ${mapId}...`);
-        this.uiManager.showLoading();
-        this.isRunning = false;
-
-        try {
-            // 現在のマップIDを保存（戻り先検索用）
-            const currentMapId = this.mapManager.mapData ? this.mapManager.mapData.map_id : null;
-
-            // マップデータを取得
-            const mRes = await GameApi.getMapData(mapId);
-
-            // マップを再初期化
-            this.mapManager.init(mRes.data.map, this.globalEventState);
-            this.uiManager.updateMapId(mapId);
-
-            // スタート位置を設定
-            let destX = startX;
-            let destZ = startZ;
-
-            // 座標指定がない場合、戻り先のワープイベントを探す (Warp Source Priority)
-            if (typeof destX !== 'number' || typeof destZ !== 'number') {
-                if (currentMapId) {
-                    console.log(`Searching for return warp to Map ${currentMapId} in Map ${mapId}...`);
-                    // 新しいマップの中から「前のマップへのワープ」を探す
-                    // Loose equality for map ID safely handles string/number mix-up
-                    const returnWarp = mRes.data.map.events.find(e =>
-                        e.type === 'warp' && e.warp_to_map == currentMapId
-                    );
-
-                    if (returnWarp) {
-                        console.log(`✅ Found return warp at (${returnWarp.x}, ${returnWarp.z})`);
-                        destX = returnWarp.x;
-                        destZ = returnWarp.z;
-                    } else {
-                        console.warn(`⚠️ No return warp found. Events checked:`, mRes.data.map.events.filter(e => e.type === 'warp'));
-                    }
-                }
-
-                // それでも見つからなければマップの初期位置
-                if (typeof destX !== 'number') destX = mRes.data.map.start_x || 1;
-                if (typeof destZ !== 'number') destZ = mRes.data.map.start_z || 1;
-            }
-
-            console.log(`Final Spawn Position: (${destX}, ${destZ})`);
-
-            this.player.gridX = destX;
-            this.player.gridZ = destZ;
-            this.player.rotationTarget = mRes.data.map.start_dir || 0;
-            this.player.updatePlayerPosition();
-            this.player.mesh.rotation.y = this.player.rotationTarget;
-
-            // NPCを再作成
-            await this.mapManager.createNPCs();
-
-            // カメラをリセット
-            // this.cameraManager.snapToPlayer();
-
-            // ゲームループを再開
-            this.isRunning = true;
-            this.startGameLoop();
-        } catch (e) {
-            console.error("Warp failed:", e);
-            this.uiManager.showLoadingError("Map Load Failed");
-        } finally {
-            this.uiManager.hideLoading();
         }
     }
 

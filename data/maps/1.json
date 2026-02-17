@@ -555,7 +555,7 @@
             "trigger": "touch",
             "warp_to_map": 2,
             "warp_to_x": 9,
-            "warp_to_z": 11,
+            "warp_to_z": 1,
             "message": "",
             "message_fail": "",
             "once": false,
