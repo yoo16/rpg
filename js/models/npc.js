@@ -4,6 +4,13 @@ import { TILE_SIZE } from '../constants.js';
 import { GameEvent } from './event.js';
 
 export class NPC {
+    static async spawn(data, loader) {
+        console.log(loader);
+        const npc = new NPC(data);
+        await npc.load(loader);
+        return npc;
+    }
+
     constructor(data) {
         this.id = data.id;
         this.name = data.name;
@@ -25,16 +32,13 @@ export class NPC {
         this.group.userData = { id: this.id, npc: this };
     }
 
-    async load(gltfLoader, fbxLoader) {
+    async load(loader) {
         const loadModel = (url) => {
             if (!url) return Promise.resolve(null);
 
             // キャッシュ回避用のパラメータを追加
             const cacheBuster = `?t=${new Date().getTime()}`;
             const dynamicUrl = url + cacheBuster;
-
-            const ext = url.split('.').pop().toLowerCase();
-            const loader = (ext === 'fbx') ? fbxLoader : gltfLoader;
 
             return new Promise((resolve) => {
                 console.log("Loading NPC model (no-cache):", dynamicUrl);

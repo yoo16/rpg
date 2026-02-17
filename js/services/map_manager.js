@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE } from '../constants.js';
 import { NPC } from '../models/npc.js';
@@ -9,21 +8,25 @@ import GameApi from './api.js';
 export class MapManager {
     constructor(game) {
         this.game = game;
+        // FBXLoader
+        this.loader = new FBXLoader();
+        // グループ
         this.group = new THREE.Group();
+        // マップ
         this.mapData = null;
-        this.mapMeshes = [];
+        // NPC
         this.npcs = [];
-        this.npcs = [];
-        this.npcMeshes = [];
-        this.doorMeshes = new Map();
 
-        this.gltfLoader = new GLTFLoader();
-        this.fbxLoader = new FBXLoader();
+        // メッシュ
+        this.npcMeshes = [];
+        this.mapMeshes = [];
+        this.doorMeshes = new Map();
     }
 
     init(mapData, globalEventState = new Set()) {
         // マップデータの初期化
         this.mapData = mapData;
+        // イベントの初期化と状態復元
         this.globalEventState = globalEventState;
 
         // テクスチャ読み込み
@@ -56,6 +59,9 @@ export class MapManager {
     }
 
     async warp(mapId, startX, startZ) {
+        const player = this.game.player;
+        if (!player) return;
+
         console.log(`MapManager: Warping to Map ${mapId}...`);
 
         // アクセス UI と Game State via this.game
@@ -63,46 +69,30 @@ export class MapManager {
         this.game.isRunning = false;
 
         try {
-            // 1. Save current map ID for return warp lookup
+            // 1. 現在のマップIDを保存して戻り先のワープを検索する
             const previousMapId = this.mapData ? this.mapData.map_id : null;
 
-            // 2. Fetch Map Data
+            // 2. マップデータを取得する
             const mRes = await GameApi.getMapData(mapId);
 
-            // 3. Initialize Map (Loads textures, events, restores state)
+            // 3. マップを初期化する (テクスチャ、イベント、状態復元)
             this.init(mRes.data.map, this.game.globalEventState);
             this.game.uiManager.updateMapId(mapId);
 
-            // 4. Calculate Spawn Position
+            // 4. 起点位置を計算する
             const spawnPos = this.getSpawnPosition(previousMapId, startX, startZ);
-
             console.log(`Final Spawn Position: (${spawnPos.x}, ${spawnPos.z})`);
 
-            // 5. Update Player Position
-            const player = this.game.player;
-            if (player) {
-                player.gridX = spawnPos.x;
-                player.gridZ = spawnPos.z;
-                player.rotationTarget = spawnPos.dir;
+            // 5. プレイヤーの位置を更新
+            player.warpTo(spawnPos.x, spawnPos.z, spawnPos.dir);
 
-                // Reset movement state to prevent ghost movement
-                player.isMoving = false;
-                player.targetPosition = null;
-                player.isRotating = false;
-
-                player.updatePlayerPosition();
-                if (player.mesh) player.mesh.rotation.y = player.rotationTarget;
-            }
-
-            // 6. Create NPCs (Async)
+            // 6. NPCを生成する
             await this.createNPCs();
 
-            // 7. Reset Camera
-            if (this.game.cameraManager && player) {
-                this.game.cameraManager.snapToPlayer(player);
-            }
+            // 7. カメラをリセットする
+            this.game.cameraManager.snapToPlayer(player);
 
-            // 8. Resume Game Loop
+            // 8. ゲームループを再開する
             this.game.isRunning = true;
             this.game.startGameLoop();
 
@@ -114,25 +104,33 @@ export class MapManager {
         }
     }
 
+    // NPCグループを生成する
     async createNPCs() {
         if (!this.mapData.npcs) return;
+
+        console.log("MapManager.createNPCs: this.loader is", this.loader);
+        const loader = this.loader;
 
         this.npcs = [];
         this.npcMeshes = [];
 
         const promises = this.mapData.npcs.map(async (npcData) => {
-            const npc = new NPC(npcData);
-            await npc.load(this.gltfLoader, this.fbxLoader);
-
+            // NPCの生成
+            const npc = await NPC.spawn(npcData, loader);
+            // NPCをリストに追加
             this.npcs.push(npc);
-            this.npcMeshes.push(npc.group); // For compatibility/references
+            // NPCのメッシュをリストに追加
+            this.npcMeshes.push(npc.group);
+            // NPCをグループに追加
             this.group.add(npc.group);
         });
-
+        // NPCを生成する
         await Promise.all(promises);
     }
 
+    // MapManagerを更新する
     update(delta) {
+        // NPCを更新する
         this.npcs.forEach(npc => npc.update(delta));
     }
 
@@ -146,6 +144,7 @@ export class MapManager {
     // イベント判定
     getEventAt(x, z) {
         if (!this.mapData || !this.mapData.events) return null;
+        // 位置を丸める
         return this.mapData.events.find(ev =>
             Math.round(ev.x) === x && Math.round(ev.z) === z
         );

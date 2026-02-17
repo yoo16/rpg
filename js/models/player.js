@@ -123,6 +123,21 @@ export class Player {
         this.mesh.add(placeholderMesh);
     }
 
+    // ワープ（位置と向きを強制設定し、移動状態をリセット）
+    warpTo(x, z, dir) {
+        this.gridX = x;
+        this.gridZ = z;
+        this.rotationTarget = dir;
+
+        // Reset movement state
+        this.isMoving = false;
+        this.targetPosition = null;
+        this.isRotating = false;
+
+        this.updatePlayerPosition();
+        if (this.mesh) this.mesh.rotation.y = this.rotationTarget;
+    }
+
     // --- 以下、既存のロジックを継承 ---
 
     setupModel(model, scale) {

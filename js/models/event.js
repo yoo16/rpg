@@ -33,20 +33,19 @@ export class GameEvent {
     }
 
     execute(player, game) {
+        // 一度きりのイベントで、すでに実行済みの場合
         if (this.once && this.executed) return { success: false, message: null };
+        // 条件チェック
         if (!this.checkCondition(player)) {
             return { success: false, message: this.message_fail };
         }
 
-        let resultMessage = this.message;
-        let success = true;
-
+        // イベント実行
         switch (this.type) {
             case 'heal':
                 player.healFull();
                 break;
             case 'set_flag':
-                console.log("Setting Flag:", this.action);
                 player.setFlag(this.action?.key, this.action?.value);
                 break;
             case 'dialogue':
@@ -62,6 +61,6 @@ export class GameEvent {
 
         if (this.once) this.executed = true;
 
-        return { success, message: resultMessage, type: this.type };
+        return { success: true, message: this.message, type: this.type };
     }
 }
