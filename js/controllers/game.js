@@ -249,26 +249,23 @@ export class Game {
 
         // イベントチェック
         const event = this.mapManager.getEventAt(x, z);
-        console.log("CheckInteraction Event at", x, z, event);
 
         // アクションイベント
         if (event && event.trigger === 'action') {
-            console.log("Executing Action Event", event.id);
             const result = event.execute(this.player, this);
-            console.log("Execution Result:", result);
+            console.log(result);
 
             // ダイアログを表示（成功メッセージ or 失敗メッセージ）
             if (result.message) {
-                console.log("Showing Dialog:", result.message);
                 this.dialogManager.show(null, result.message);
             }
 
             // イベント成功時の View 更新ロジック
             if (result.success) {
-                if (event.once || event.type === 'open_door' || event.type === 'set_flag') {
+                // 一度きりのイベントまたは、開けた扉、フラグを立てるイベントの場合
+                if (event.once || event.type.includes('open_door', 'set_flag')) {
                     const uniqueId = `${this.mapManager.mapData.map_id}_${event.id}`;
                     this.globalEventState.add(uniqueId);
-                    console.log(`Saved event state: ${uniqueId}`);
                 }
                 // Update UI
                 this.updateAllStatusUI();
@@ -335,8 +332,8 @@ export class Game {
         const px = this.player.gridX;
         const pz = this.player.gridZ;
         const event = this.mapManager.getEventAt(px, pz);
-        console.log("CheckTileEvent", px, pz, event);
         if (event && event.trigger.includes('touch', 'action')) {
+            console.log("CheckTileEvent", px, pz, event);
             const result = event.execute(this.player, this);
             if (result.message) {
                 this.dialogManager.show(null, result.message);

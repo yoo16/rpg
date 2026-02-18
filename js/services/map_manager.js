@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TILE_SIZE } from '../constants.js';
 import { NPC } from '../models/npc.js';
+import { Floor } from '../views/floor.js';
+import { Ceiling } from '../views/ceiling.js';
+import { Wall } from '../views/wall.js';
+import { Water } from '../views/water.js';
+import { Door } from '../views/door.js';
+import { Warp } from '../views/warp.js';
 import { GameEvent } from '../models/event.js';
 import GameApi from './api.js';
 
@@ -28,18 +34,6 @@ export class MapManager {
         this.mapData = mapData;
         // イベントの初期化と状態復元
         this.globalEventState = globalEventState;
-
-        // テクスチャ読み込み
-        const textureLoader = new THREE.TextureLoader();
-        this.wallTexture = textureLoader.load('assets/textures/stone_wall.jpg');
-        this.floorTexture = textureLoader.load('assets/textures/dungeon_floor.jpg');
-        this.waterTexture = textureLoader.load('assets/textures/water.png');
-        this.waterTexture.wrapS = THREE.RepeatWrapping;
-        this.waterTexture.wrapS = THREE.RepeatWrapping;
-        this.waterTexture.wrapT = THREE.RepeatWrapping;
-
-        this.doorClosedTexture = textureLoader.load('assets/textures/door_closed.png');
-        this.doorOpenTexture = textureLoader.load('assets/textures/door_open.png');
 
         // イベントの初期化と状態復元
         if (this.mapData.events) {
@@ -237,31 +231,21 @@ export class MapManager {
                 // Check for warp event
                 const event = this.getEventAt(x, z);
                 const isWarp = event && event.type === 'warp';
+                const isDoor = event && event.type === 'open_door';
 
                 if (tiles[z][x] === 1) {
-                    // Check for door event
-                    const isDoor = event && event.type === 'open_door';
-
-                    if (isDoor) {
-                        if (event.executed) {
-                            // Already open: Treat as floor
-                            this.mapData.tiles[z][x] = 0;
-                            if (isWarp) {
-                                this.createWarpTile(worldX, worldZ);
-                            } else {
-                                this.createFloor(worldX, worldZ);
-                            }
-                            this.createCeiling(worldX, worldZ);
-                        } else {
-                            this.createDoor(worldX, worldZ, x, z);
-                        }
+                    // Wall
+                    if (isDoor && !event.executed) {
+                        this.createDoor(worldX, worldZ, x, z);
                     } else {
                         this.createWall(worldX, worldZ);
                     }
                 } else if (tiles[z][x] === 2) {
+                    // Water
                     this.createWater(worldX, worldZ);
                     this.createCeiling(worldX, worldZ);
                 } else {
+                    // Floor
                     if (isWarp) {
                         this.createWarpTile(worldX, worldZ);
                     } else {
@@ -295,102 +279,32 @@ export class MapManager {
 
     // 床の作成
     createFloor(x, z) {
-        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-        const material = new THREE.MeshLambertMaterial({ map: this.floorTexture, color: 0x888888 });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(x, 0, z);
-        mesh.receiveShadow = true;
-        this.group.add(mesh);
-        this.mapMeshes.push(mesh);
+        new Floor(this).add(x, z);
+    }
+
+    // 
+    createDoor(worldX, worldZ, x, z) {
+        new Door(this).add(worldX, worldZ, x, z);
     }
 
     // ワープタイルの作成 (紫色)
     createWarpTile(x, z) {
-        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-        const material = new THREE.MeshLambertMaterial({ map: this.floorTexture, color: 0xaa00ff, emissive: 0x330055, emissiveIntensity: 0.5 });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(x, 0, z);
-        mesh.receiveShadow = true;
-        this.group.add(mesh);
-        this.mapMeshes.push(mesh);
+        new Warp(this).add(x, z);
     }
 
     // 壁の作成
     createWall(x, z) {
-        const height = 4;
-        const geometry = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        const material = new THREE.MeshLambertMaterial({ map: this.wallTexture, color: 0x888888 });
-
-        for (let i = 0; i < height; i++) {
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, (i * TILE_SIZE) + (TILE_SIZE / 2), z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            this.group.add(mesh);
-            this.mapMeshes.push(mesh);
-        }
-    }
-
-    // ドアの作成
-    createDoor(x, z, gridX, gridZ) {
-        const height = 4;
-        const doorHeightTiles = 2; // Door is 2 tiles high
-
-        // 1. ドアの作成
-        const doorGeo = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE * doorHeightTiles, TILE_SIZE * 0.4);
-        const doorMat = new THREE.MeshLambertMaterial({ map: this.doorClosedTexture, color: 0xffffff });
-
-        const doorMesh = new THREE.Mesh(doorGeo, doorMat);
-        doorMesh.position.set(x, (doorHeightTiles * TILE_SIZE) / 2, z);
-        doorMesh.castShadow = true;
-        doorMesh.receiveShadow = true;
-
-        this.group.add(doorMesh);
-        this.mapMeshes.push(doorMesh);
-        this.doorMeshes.set(`${gridX},${gridZ}`, doorMesh);
-
-        // 2. ドアの上の壁の作成
-        const wallTiles = height - doorHeightTiles;
-        if (wallTiles > 0) {
-            const wallGeo = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-            const wallMat = new THREE.MeshLambertMaterial({ map: this.wallTexture, color: 0x888888 });
-
-            for (let i = 0; i < wallTiles; i++) {
-                const wallMesh = new THREE.Mesh(wallGeo, wallMat);
-                // ドアの高さ + 現在の壁のインデックス
-                const yPos = (doorHeightTiles * TILE_SIZE) + (i * TILE_SIZE) + (TILE_SIZE / 2);
-                wallMesh.position.set(x, yPos, z);
-                wallMesh.castShadow = true;
-                wallMesh.receiveShadow = true;
-                this.group.add(wallMesh);
-                this.mapMeshes.push(wallMesh);
-            }
-        }
+        new Wall(this).add(x, z);
     }
 
     // 天井の作成
     createCeiling(x, z) {
-        const wallHeight = 4.0;
-        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-        const material = new THREE.MeshLambertMaterial({ color: 0x222222, side: THREE.BackSide });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = Math.PI / 2;
-        mesh.position.set(x, wallHeight, z);
-        this.group.add(mesh);
-        this.mapMeshes.push(mesh);
+        new Ceiling(this).add(x, z);
     }
 
     // 水の作成
     createWater(x, z) {
-        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-        const material = new THREE.MeshLambertMaterial({ map: this.waterTexture });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(x, 0.01, z);
-        this.group.add(mesh);
-        this.mapMeshes.push(mesh);
+        new Water(this).add(x, z);
     }
 
     // ドアを開ける
