@@ -8,6 +8,7 @@ import { Wall } from '../views/wall.js';
 import { Water } from '../views/water.js';
 import { Door } from '../views/door.js';
 import { Warp } from '../views/warp.js';
+import { NpcManager } from './npc_manager.js';
 import { GameEvent } from '../models/event.js';
 import GameApi from './api.js';
 
@@ -22,6 +23,7 @@ export class MapManager {
         this.mapData = null;
         // NPC
         this.npcs = [];
+        this.npcManager = new NpcManager(this);
 
         // メッシュ
         this.npcMeshes = [];
@@ -41,7 +43,6 @@ export class MapManager {
                 const ev = new GameEvent(evData);
                 const uniqueId = `${this.mapData.map_id}_${ev.id}`;
                 if (this.globalEventState.has(uniqueId)) {
-                    console.log(`Restoring event state: ${uniqueId}`);
                     ev.executed = true;
                 }
                 return ev;
@@ -100,32 +101,13 @@ export class MapManager {
 
     // NPCグループを生成する
     async createNPCs() {
-        if (!this.mapData.npcs) return;
-
-        console.log("MapManager.createNPCs: this.loader is", this.loader);
-        const loader = this.loader;
-
-        this.npcs = [];
-        this.npcMeshes = [];
-
-        const promises = this.mapData.npcs.map(async (npcData) => {
-            // NPCの生成
-            const npc = await NPC.spawn(npcData, loader);
-            // NPCをリストに追加
-            this.npcs.push(npc);
-            // NPCのメッシュをリストに追加
-            this.npcMeshes.push(npc.group);
-            // NPCをグループに追加
-            this.group.add(npc.group);
-        });
-        // NPCを生成する
-        await Promise.all(promises);
+        await this.npcManager.create(this.mapData, this.loader);
     }
 
     // MapManagerを更新する
     update(delta) {
         // NPCを更新する
-        this.npcs.forEach(npc => npc.update(delta));
+        this.npcManager.update();
     }
 
     // NPC判定
@@ -215,7 +197,6 @@ export class MapManager {
     // ワープ先マップIDからイベントを検索
     getEventByWarpDestination(targetMapId) {
         if (!this.mapData || !this.mapData.events) return null;
-        // Loose equality for robust matching
         return this.mapData.events.find(ev => ev.type === 'warp' && ev.warp_to_map == targetMapId);
     }
 
